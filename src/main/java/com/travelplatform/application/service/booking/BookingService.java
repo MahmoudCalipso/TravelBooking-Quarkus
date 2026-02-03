@@ -98,7 +98,7 @@ public class BookingService {
         }
 
         // Calculate pricing
-        int totalNights = dateRange.getNights();
+        long totalNights = dateRange.getNights();
         Money basePricePerNight = accommodation.getBasePrice();
         Money totalBasePrice = pricingService.calculateTotalPrice(accommodation, request.getCheckInDate(),
                 request.getCheckOutDate(), request.getNumberOfGuests());
@@ -130,7 +130,7 @@ public class BookingService {
         BookingPayment payment = new BookingPayment(
                 booking.getId(),
                 totalPrice,
-                accommodation.getCurrency(),
+                accommodation.getCurrency() != null ? accommodation.getCurrency().getCurrencyCode() : "USD",
                 BookingPayment.PaymentMethod.CARD, // Default payment method
                 "STRIPE" // Default payment provider
         );
@@ -169,8 +169,8 @@ public class BookingService {
      * Get bookings by user.
      */
     @Transactional
-    public List<BookingResponse> getBookingsByUser(UUID userId, int page, int pageSize) {
-        List<Booking> bookings = bookingRepository.findByUserIdPaginated(userId, page, pageSize);
+    public List<BookingResponse> getBookingsByUser(UUID userId, BookingStatus status, int page, int pageSize) {
+        List<Booking> bookings = bookingRepository.findByUserIdPaginated(userId, status,page, pageSize);
         return bookingMapper.toBookingResponseList(bookings);
     }
 
@@ -178,8 +178,8 @@ public class BookingService {
      * Get bookings by accommodation (for suppliers).
      */
     @Transactional
-    public List<BookingResponse> getBookingsByAccommodation(UUID accommodationId, int page, int pageSize) {
-        List<Booking> bookings = bookingRepository.findByAccommodationIdPaginated(accommodationId, page, pageSize);
+    public List<BookingResponse> getBookingsByAccommodation(UUID accommodationId, BookingStatus status, int page, int pageSize) {
+        List<Booking> bookings = bookingRepository.findByAccommodationIdPaginated(accommodationId, status, page, pageSize);
         return bookingMapper.toBookingResponseList(bookings);
     }
 

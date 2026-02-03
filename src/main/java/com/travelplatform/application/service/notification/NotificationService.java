@@ -128,7 +128,6 @@ public class NotificationService {
      * Mark all notifications as read.
      */
     @Transactional
-    @Transactional
     public void markAllAsRead(UUID userId) {
         notificationRepository.markAllAsReadByUserId(userId);
     }
@@ -153,7 +152,6 @@ public class NotificationService {
     /**
      * Delete old notifications (cleanup job).
      */
-    @Transactional
     @Transactional
     public void deleteOldNotifications(LocalDateTime beforeDate) {
         notificationRepository.deleteOldNotificationsBeforeDate(beforeDate);

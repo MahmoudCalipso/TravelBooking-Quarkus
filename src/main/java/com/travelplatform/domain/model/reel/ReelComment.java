@@ -13,7 +13,7 @@ public class ReelComment {
     private final UUID reelId;
     private final UUID userId;
     private UUID parentCommentId;
-    private final String content;
+    private String content;
     private CommentStatus status;
     private int likeCount;
     private final LocalDateTime createdAt;

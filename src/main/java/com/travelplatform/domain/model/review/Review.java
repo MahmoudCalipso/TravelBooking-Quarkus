@@ -17,18 +17,18 @@ public class Review {
     private final UUID accommodationId;
     private final UUID bookingId;
     private final int overallRating;
-    private final Integer cleanlinessRating;
-    private final Integer accuracyRating;
-    private final Integer communicationRating;
-    private final Integer locationRating;
-    private final Integer valueRating;
+    private Integer cleanlinessRating;
+    private Integer accuracyRating;
+    private Integer communicationRating;
+    private Integer locationRating;
+    private Integer valueRating;
     private String title;
     private String content;
     private String pros;
     private String cons;
-    private final TravelType travelType;
-    private final LocalDate stayedDate;
-    private final boolean isVerified;
+    private TravelType travelType;
+    private LocalDate stayedDate;
+    private boolean isVerified;
     private ApprovalStatus status;
     private int helpfulCount;
     private String responseFromHost;
@@ -47,6 +47,51 @@ public class Review {
         FRIENDS,
         BUSINESS,
         OTHER
+    }
+
+    /**
+     * Simplified constructor for service layer.
+     * Required fields: reviewerId, accommodationId, overallRating, content
+     * Optional fields will be set via setters
+     */
+    public Review(UUID id, UUID reviewerId, UUID accommodationId, UUID bookingId, int overallRating, String content) {
+        if (reviewerId == null) {
+            throw new IllegalArgumentException("Reviewer ID cannot be null");
+        }
+        if (accommodationId == null) {
+            throw new IllegalArgumentException("Accommodation ID cannot be null");
+        }
+        if (overallRating < 1 || overallRating > 5) {
+            throw new IllegalArgumentException("Overall rating must be between 1 and 5");
+        }
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("Content cannot be null or empty");
+        }
+
+        this.id = id;
+        this.reviewerId = reviewerId;
+        this.accommodationId = accommodationId;
+        this.bookingId = bookingId;
+        this.overallRating = overallRating;
+        this.cleanlinessRating = null;
+        this.accuracyRating = null;
+        this.communicationRating = null;
+        this.locationRating = null;
+        this.valueRating = null;
+        this.title = null;
+        this.content = content;
+        this.pros = null;
+        this.cons = null;
+        this.travelType = null;
+        this.stayedDate = null;
+        this.isVerified = false;
+        this.status = ApprovalStatus.PENDING;
+        this.helpfulCount = 0;
+        this.responseFromHost = null;
+        this.respondedAt = null;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        this.approvedAt = null;
     }
 
     /**
@@ -440,6 +485,90 @@ public class Review {
      */
     public boolean isRecent() {
         return createdAt.isAfter(LocalDateTime.now().minusDays(30));
+    }
+
+    // Setter methods for service layer (for use with simplified constructor)
+    public void setCleanlinessRating(Integer cleanlinessRating) {
+        if (cleanlinessRating != null && (cleanlinessRating < 1 || cleanlinessRating > 5)) {
+            throw new IllegalArgumentException("Cleanliness rating must be between 1 and 5");
+        }
+        this.cleanlinessRating = cleanlinessRating;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setAccuracyRating(Integer accuracyRating) {
+        if (accuracyRating != null && (accuracyRating < 1 || accuracyRating > 5)) {
+            throw new IllegalArgumentException("Accuracy rating must be between 1 and 5");
+        }
+        this.accuracyRating = accuracyRating;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setCommunicationRating(Integer communicationRating) {
+        if (communicationRating != null && (communicationRating < 1 || communicationRating > 5)) {
+            throw new IllegalArgumentException("Communication rating must be between 1 and 5");
+        }
+        this.communicationRating = communicationRating;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setLocationRating(Integer locationRating) {
+        if (locationRating != null && (locationRating < 1 || locationRating > 5)) {
+            throw new IllegalArgumentException("Location rating must be between 1 and 5");
+        }
+        this.locationRating = locationRating;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setValueRating(Integer valueRating) {
+        if (valueRating != null && (valueRating < 1 || valueRating > 5)) {
+            throw new IllegalArgumentException("Value rating must be between 1 and 5");
+        }
+        this.valueRating = valueRating;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setContent(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("Content cannot be null or empty");
+        }
+        this.content = content;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setPros(String pros) {
+        this.pros = pros;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setCons(String cons) {
+        this.cons = cons;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setTravelType(TravelType travelType) {
+        this.travelType = travelType;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setStayedDate(LocalDate stayedDate) {
+        this.stayedDate = stayedDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setVerified(boolean verified) {
+        this.isVerified = verified;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setStatus(ApprovalStatus status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
     }
 
     @Override

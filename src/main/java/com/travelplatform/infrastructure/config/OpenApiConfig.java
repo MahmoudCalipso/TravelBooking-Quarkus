@@ -144,8 +144,6 @@ public class OpenApiConfig implements OASFilter {
      * @param openApi The OpenAPI document
      * @return The filtered OpenAPI document
      */
-    @Override
-    @Override
     public void filterOpenAPI(OpenAPI openApi) {
         if (!filterEnabled) {
             return;

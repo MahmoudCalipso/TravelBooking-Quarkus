@@ -79,7 +79,7 @@ public class StripePaymentGateway implements PaymentGateway {
             return intent;
 
         } catch (StripeException e) {
-            throw new PaymentException(PAYMENT_FAILED, "Failed to create payment intent: " + e.getMessage(), e);
+            throw new PaymentException(PaymentException.PAYMENT_FAILED, "Failed to create payment intent: " + e.getMessage(), e);
         }
     }
 

@@ -144,7 +144,8 @@ public class Money {
         if (factor < 0) {
             throw new IllegalArgumentException("Factor cannot be negative");
         }
-        return new Money(this.amount.multiply(BigDecimal.valueOf(factor)), this.currency);
+        BigDecimal result = this.amount.multiply(BigDecimal.valueOf(factor)).setScale(2, RoundingMode.HALF_UP);
+        return new Money(result, this.currency);
     }
 
     /**

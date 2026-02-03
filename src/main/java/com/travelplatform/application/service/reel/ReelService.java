@@ -63,13 +63,33 @@ public class ReelService {
         String creatorType = user.getRole() == UserRole.SUPPLIER_SUBSCRIBER ? "SUPPLIER_SUBSCRIBER" : "TRAVELER";
 
         // Create reel
+        // Build Location from latitude/longitude
+        Location location = new Location(
+                request.getLocationLatitude() != null ? request.getLocationLatitude().doubleValue() : 0.0,
+                request.getLocationLongitude() != null ? request.getLocationLongitude().doubleValue() : 0.0);
+        
+        // Convert visibility string to enum
+        VisibilityScope visibility = request.getVisibility() != null ? 
+                VisibilityScope.valueOf(request.getVisibility()) : VisibilityScope.PUBLIC;
+        
+        // Determine if promotional
+        boolean isPromotional = user.getRole() == UserRole.SUPPLIER_SUBSCRIBER;
+        
+        // Convert creatorType from String to enum
+        TravelReel.CreatorType reelCreatorType = request.getCreatorType() != null ? 
+                request.getCreatorType() : 
+                (user.getRole() == UserRole.SUPPLIER_SUBSCRIBER ? TravelReel.CreatorType.SUPPLIER_SUBSCRIBER : TravelReel.CreatorType.TRAVELER);
+        
         TravelReel reel = new TravelReel(
-                UUID.randomUUID(),
                 userId,
-                creatorType,
+                reelCreatorType,
                 request.getVideoUrl(),
                 request.getThumbnailUrl(),
-                request.getDuration());
+                request.getDuration(),
+                location,
+                request.getLocationName(),
+                visibility,
+                isPromotional);
 
         // Set optional fields
         if (request.getTitle() != null) {
@@ -77,9 +97,6 @@ public class ReelService {
         }
         if (request.getDescription() != null) {
             reel.setDescription(request.getDescription());
-        }
-        if (request.getLatitude() != null && request.getLongitude() != null) {
-            reel.setLocation(new Location(request.getLatitude(), request.getLongitude()));
         }
         if (request.getLocationName() != null) {
             reel.setLocationName(request.getLocationName());

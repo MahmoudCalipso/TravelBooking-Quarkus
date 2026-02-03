@@ -82,11 +82,11 @@ public class UserPreferences {
         return new ArrayList<>(preferredDestinations);
     }
 
-    public String getBudgetRange() {
+    public BudgetRange getBudgetRange() {
         return budgetRange;
     }
 
-    public String getTravelStyle() {
+    public TravelStyle getTravelStyle() {
         return travelStyle;
     }
 

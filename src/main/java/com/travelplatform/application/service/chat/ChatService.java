@@ -42,7 +42,6 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         // Create chat group
-        // Create chat group
         ChatGroup chatGroup = new ChatGroup(
                 name,
                 ChatGroup.ReferenceType.valueOf(referenceType),
@@ -69,7 +68,7 @@ public class ChatService {
      */
     @Transactional
     public List<ChatGroup> getUserChatGroups(UUID userId, int page, int pageSize) {
-        return chatRepository.findChatGroupsByUser(userId, page, pageSize);
+        return chatRepository.findChatGroupsByCreatorId(userId);
     }
 
     /**
@@ -164,7 +163,7 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalArgumentException("User 2 not found"));
 
         // Check if conversation already exists
-        return chatRepository.findConversation(userId1, userId2)
+        return chatRepository.findConversationByParticipants(userId1, userId2)
                 .orElseGet(() -> {
                     // Create new conversation
                     Conversation conversation = new Conversation(
@@ -241,18 +240,14 @@ public class ChatService {
         }
 
         // Mark all unread messages as read
-        List<DirectMessage> unreadMessages = chatRepository.findUnreadMessages(conversationId, userId);
+        List<DirectMessage> unreadMessages = chatRepository.findUnreadDirectMessagesByConversationIdAndRecipient(conversationId, userId);
         for (DirectMessage message : unreadMessages) {
             message.markAsRead();
             chatRepository.saveDirectMessage(message);
         }
 
         // Reset unread count
-        if (conversation.getParticipant1Id().equals(userId)) {
-            conversation.resetUnreadCountP1();
-        } else {
-            conversation.resetUnreadCountP2();
-        }
+        conversation.markAsRead(userId);
         chatRepository.saveConversation(conversation);
     }
 
@@ -264,11 +259,7 @@ public class ChatService {
         List<Conversation> conversations = chatRepository.findConversationsByUser(userId, 0, Integer.MAX_VALUE);
         int totalUnread = 0;
         for (Conversation conversation : conversations) {
-            if (conversation.getParticipant1Id().equals(userId)) {
-                totalUnread += conversation.getUnreadCountP1();
-            } else {
-                totalUnread += conversation.getUnreadCountP2();
-            }
+            totalUnread += conversation.getUnreadCount(userId);
         }
         return totalUnread;
     }

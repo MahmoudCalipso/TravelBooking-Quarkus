@@ -44,7 +44,7 @@ public class CreateReelRequest {
     @Size(max = 10, message = "Maximum 10 tags allowed")
     private List<String> tags;
 
-    @Pattern(regexp = "ACCOMMODATION|EVENT|DESTINATION|null", message = "Invalid related entity type")
+    @Pattern(regexp = "ACCOMMODATION|EVENT|DESTINATION", message = "Invalid related entity type")
     private String relatedEntityType;
 
     private UUID relatedEntityId;

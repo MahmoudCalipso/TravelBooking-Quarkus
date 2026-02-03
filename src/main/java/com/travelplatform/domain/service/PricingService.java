@@ -87,7 +87,7 @@ public class PricingService {
      * @param nights        number of nights
      * @return calculated cleaning fee
      */
-    public Money calculateCleaningFee(Accommodation accommodation, int nights) {
+    public Money calculateCleaningFee(Accommodation accommodation, long nights) {
         if (accommodation == null) {
             throw new IllegalArgumentException("Accommodation cannot be null");
         }

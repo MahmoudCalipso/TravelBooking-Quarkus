@@ -68,7 +68,6 @@ public class AccommodationService {
             throw new IllegalArgumentException("Only suppliers can create accommodations");
         }
 
-        // Create accommodation
         // Create Value Objects
         com.travelplatform.domain.valueobject.Address address = new com.travelplatform.domain.valueobject.Address(
                 request.getAddress(),

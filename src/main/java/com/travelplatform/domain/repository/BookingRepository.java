@@ -94,7 +94,7 @@ public interface BookingRepository {
      * @param pageSize page size
      * @return list of bookings
      */
-    List<Booking> findByUserIdPaginated(UUID userId, int page, int pageSize);
+    List<Booking> findByUserIdPaginated(UUID userId, BookingStatus status,  int page, int pageSize);
 
     /**
      * Finds bookings by accommodation ID with pagination.
@@ -104,7 +104,7 @@ public interface BookingRepository {
      * @param pageSize        page size
      * @return list of bookings
      */
-    List<Booking> findByAccommodationIdPaginated(UUID accommodationId, int page, int pageSize);
+    List<Booking> findByAccommodationIdPaginated(UUID accommodationId, BookingStatus status ,int page, int pageSize);
 
     /**
      * Finds bookings by status with pagination.

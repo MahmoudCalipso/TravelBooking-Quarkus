@@ -17,18 +17,6 @@ public class User {
     private final String email;
     private String passwordHash;
     private final UserRole role;
-
-    // ...
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-        this.updatedAt = LocalDateTime.now();
-    }
-
     private UserStatus status;
     private boolean emailVerified;
     private final LocalDateTime createdAt;

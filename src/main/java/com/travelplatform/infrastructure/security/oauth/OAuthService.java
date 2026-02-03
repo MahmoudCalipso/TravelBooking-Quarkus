@@ -6,7 +6,6 @@ import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.model.user.UserProfile;
 import com.travelplatform.domain.repository.UserRepository;
 import io.quarkus.oidc.client.OidcClient;
-import io.quarkus.oidc.client.OidcClientConfig;
 import io.quarkus.oidc.client.Tokens;
 import io.quarkus.oidc.OidcTenantConfig;
 import io.smallrye.jwt.build.Jwt;
@@ -41,7 +40,7 @@ public class OAuthService {
     private static final Logger log = LoggerFactory.getLogger(OAuthService.class);
 
     @Inject
-    OidcConfig oidcConfig;
+    OidcTenantConfig oidcConfig;
 
     @Inject
     UserRepository userRepository;

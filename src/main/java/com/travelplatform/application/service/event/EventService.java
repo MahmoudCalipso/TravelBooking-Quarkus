@@ -53,7 +53,6 @@ public class EventService {
         }
 
         // Create event
-        // Create event
         Event event = new Event(
                 userId,
                 title,

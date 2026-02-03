@@ -649,10 +649,22 @@ public class Accommodation {
         }
     }
 
-    public void setCurrency(String currency) {
+    public void setCurrency(Currency currency) {
         if (this.basePrice != null && currency != null) {
             this.basePrice = new Money(this.basePrice.getAmount(), currency);
             this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    public void setCurrency(String currencyCode) {
+        if (this.basePrice != null && currencyCode != null && !currencyCode.isEmpty()) {
+            try {
+                Currency currency = Currency.getInstance(currencyCode);
+                this.basePrice = new Money(this.basePrice.getAmount(), currency);
+                this.updatedAt = LocalDateTime.now();
+            } catch (IllegalArgumentException e) {
+                // Invalid currency code, skip update
+            }
         }
     }
 
