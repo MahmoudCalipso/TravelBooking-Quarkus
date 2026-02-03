@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: travelplatform-postgres
+    environment:
+      POSTGRES_DB: travelplatform
+      POSTGRES_USER: travelplatform
+      POSTGRES_PASSWORD: travelplatform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - travelplatform-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travelplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache (for distributed caching, rate limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: travelplatform-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - travelplatform-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Quarkus Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: travelplatform-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_URL: jdbc:postgresql://postgres:5432/travelplatform
+      DB_USERNAME: travelplatform
+      DB_PASSWORD: travelplatform
+      
+      # JWT Configuration
+      JWT_ISSUER: https://travelplatform.com
+      JWT_AUDIENCE: travel-platform
+      
+      # CORS Configuration (adjust for production)
+      CORS_ORIGINS: http://localhost:3000,http://localhost:8080
+      
+      # External Service Keys (replace with your actual keys)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-your-google-client-id}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-your-google-client-secret}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-your-microsoft-client-id}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-your-microsoft-client-secret}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-your-apple-client-id}
+      APPLE_CLIENT_SECRET: ${APPLE_CLIENT_SECRET:-your-apple-client-secret}
+      
+      # Firebase Configuration
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-travel-platform}
+      FIREBASE_STORAGE_BUCKET: ${FIREBASE_STORAGE_BUCKET:-travel-platform.appspot.com}
+      
+      # Payment Configuration
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-sk_test_}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_}
+      
+      # Email Configuration
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-your-sendgrid-api-key}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@travelplatform.com}
+      
+      # SMS Configuration
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-your-twilio-account-sid}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-your-twilio-auth-token}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-+1234567890}
+      
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logs:/deployments/logs
+      - ./publicKey.pem:/deployments/publicKey.pem:ro
+      - ./privateKey.pem:/deployments/privateKey.pem:ro
+    networks:
+      - travelplatform-network
+    restart: unless-stopped
+
+  # PgAdmin (Database Management Tool)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: travelplatform-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@travelplatform.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - travelplatform-network
+    depends_on:
+      - postgres
+
+  # Redis Commander (Redis Management UI)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: travelplatform-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - travelplatform-network
+    depends_on:
+      - redis
+
+networks:
+  travelplatform-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  pgadmin-data:
