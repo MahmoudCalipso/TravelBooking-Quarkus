@@ -1,6 +1,7 @@
 package com.travelplatform.infrastructure.config;
 
 import io.quarkus.arc.Unremovable;
+import io.smallrye.openapi.api.models.ComponentsImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -18,6 +19,9 @@ import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.annotations.servers.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * OpenAPI/Swagger configuration for the Travel Platform application.
@@ -170,7 +174,7 @@ public class OpenApiConfig implements OASFilter {
             securityScheme.setDescription("JWT authentication token");
 
             if (openApi.getComponents() == null) {
-                openApi.setComponents(new io.smallrye.openapi.api.models.ComponentsImpl());
+                openApi.setComponents(new ComponentsImpl());
             }
             openApi.getComponents().addSecurityScheme("jwtAuth", securityScheme);
         }

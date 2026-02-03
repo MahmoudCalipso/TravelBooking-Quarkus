@@ -1,6 +1,5 @@
 package com.travelplatform.interfaces.rest.filter;
-
-import com.travelplatform.infrastructure.security.JwtTokenProvider;
+import com.travelplatform.infrastructure.security.jwt.JwtTokenProvider;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -63,7 +62,7 @@ public class AuthenticationFilter implements ContainerRequestFilter {
             }
 
             // Extract user ID from token and set in security context
-            String userId = jwtTokenProvider.getUserIdFromToken(token);
+            String userId = String.valueOf(jwtTokenProvider.getUserIdFromToken(token));
             if (userId != null) {
                 log.debug("User authenticated: {}", userId);
                 // SecurityIdentity is automatically populated by Quarkus JWT extension

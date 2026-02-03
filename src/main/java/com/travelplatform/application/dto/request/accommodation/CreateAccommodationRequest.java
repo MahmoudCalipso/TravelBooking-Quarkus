@@ -1,5 +1,6 @@
 package com.travelplatform.application.dto.request.accommodation;
 
+import com.travelplatform.domain.model.accommodation.AccommodationAmenity;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalTime;
@@ -341,7 +342,7 @@ public class CreateAccommodationRequest {
 
     public static class AmenityRequest {
         private String amenityName;
-        private String category;
+        private AccommodationAmenity.AmenityCategory category;
 
         public String getAmenityName() {
             return amenityName;
@@ -351,11 +352,11 @@ public class CreateAccommodationRequest {
             this.amenityName = amenityName;
         }
 
-        public String getCategory() {
+        public AccommodationAmenity.AmenityCategory getCategory() {
             return category;
         }
 
-        public void setCategory(String category) {
+        public void setCategory(AccommodationAmenity.AmenityCategory category) {
             this.category = category;
         }
     }

@@ -6,6 +6,8 @@ import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.model.user.UserPreferences;
 import com.travelplatform.domain.valueobject.Location;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -190,7 +192,7 @@ public class RecommendationService {
      * Recommends accommodations based on user's booking history.
      *
      * @param user               user
-     * @param userBookings       user's past bookings
+     * @param userBookedAccommodations       user's past bookings
      * @param allAccommodations all available accommodations
      * @return list of recommended accommodations
      */
@@ -304,8 +306,8 @@ public class RecommendationService {
         }
 
         // Recency score (0-20 points)
-        long daysSinceCreation = java.time.temporal.ChronoUnit.DAYS.between(
-                reel.getCreatedAt(), java.time.LocalDateTime.now()
+        long daysSinceCreation = ChronoUnit.DAYS.between(
+                reel.getCreatedAt(), LocalDateTime.now()
         );
         score += Math.max(0, 20 - daysSinceCreation * 0.5);
 
@@ -327,8 +329,8 @@ public class RecommendationService {
         double score = 0.0;
 
         // Recent engagement (last 7 days)
-        long daysSinceCreation = java.time.temporal.ChronoUnit.DAYS.between(
-                reel.getCreatedAt(), java.time.LocalDateTime.now()
+        long daysSinceCreation = ChronoUnit.DAYS.between(
+                reel.getCreatedAt(), LocalDateTime.now()
         );
 
         if (daysSinceCreation <= 7) {

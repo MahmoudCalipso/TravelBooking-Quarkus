@@ -8,12 +8,9 @@ import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.dto.response.user.AuthResponse;
 import com.travelplatform.application.service.user.AuthenticationService;
 import com.travelplatform.application.service.user.UserService;
-import com.travelplatform.domain.enums.UserRole;
-import com.travelplatform.domain.enums.UserStatus;
-import com.travelplatform.infrastructure.security.JwtTokenProvider;
+import com.travelplatform.infrastructure.security.jwt.JwtTokenProvider;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -146,7 +143,7 @@ public class AuthController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Logout request for user: {}", userId);
             
-            authenticationService.logout(userId);
+            authenticationService.logout(UUID.fromString(userId));
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Logout successful"))
@@ -179,7 +176,7 @@ public class AuthController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Token refresh request for user: {}", userId);
             
-            AuthResponse authResponse = authenticationService.refreshToken(userId);
+            AuthResponse authResponse = authenticationService.refreshToken(UUID.fromString(userId));
             
             return Response.ok()
                     .entity(new SuccessResponse<>(authResponse, "Token refreshed successfully"))

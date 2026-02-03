@@ -1,8 +1,6 @@
 package com.travelplatform.infrastructure.config;
 
 import com.travelplatform.domain.enums.UserRole;
-import com.travelplatform.infrastructure.security.JwtAuthenticationFilter;
-import io.quarkus.security.identity.AuthenticationRequestContext;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.runtime.QuarkusSecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -4,7 +4,6 @@ import com.travelplatform.domain.model.accommodation.Accommodation;
 import com.travelplatform.domain.model.booking.Booking;
 import com.travelplatform.domain.model.reel.TravelReel;
 import com.travelplatform.domain.model.review.Review;
-import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.valueobject.DateRange;
 import com.travelplatform.domain.valueobject.Money;
 
@@ -173,11 +172,7 @@ public class ValidationService {
         if (basePrice == null) {
             result.addError("basePrice", "Base price is required");
         } else if (basePrice.getAmount().doubleValue() <= 0) {
-            // Assuming Money.getAmount() returns BigDecimal, checking > 0 generic way
-            // Or explicitly
-            if (basePrice.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-                result.addError("basePrice", "Base price must be positive");
-            }
+            result.addError("basePrice", "Base price must be positive");
         }
 
         if (maxGuests == null || maxGuests <= 0) {

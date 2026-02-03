@@ -8,10 +8,7 @@ import com.travelplatform.domain.valueobject.Money;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.math.BigDecimal;
 
 /**
@@ -659,7 +656,7 @@ public class Accommodation {
         }
     }
 
-    public String getCurrency() {
+    public Currency getCurrency() {
         return basePrice != null ? basePrice.getCurrency() : null;
     }
 

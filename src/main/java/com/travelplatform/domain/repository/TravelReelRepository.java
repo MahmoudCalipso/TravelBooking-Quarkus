@@ -1,14 +1,12 @@
 package com.travelplatform.domain.repository;
 
+import com.travelplatform.domain.model.reel.ReelReport;
 import com.travelplatform.domain.model.reel.TravelReel;
 import com.travelplatform.domain.model.reel.ReelEngagement;
 import com.travelplatform.domain.model.reel.ReelComment;
 import com.travelplatform.domain.enums.ApprovalStatus;
 import com.travelplatform.domain.enums.VisibilityScope;
 import com.travelplatform.domain.valueobject.Location;
-
-import com.travelplatform.application.service.admin.AdminModerationService.ReportStatus;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -226,29 +224,29 @@ public interface TravelReelRepository {
      * @param status report status
      * @return count of reports
      */
-    long countReportsByStatus(com.travelplatform.application.service.admin.AdminModerationService.ReportStatus status);
+    long countReportsByStatus(ReelReport.ReportStatus status);
 
     /**
      * Finds reports with pagination.
      */
-    List<com.travelplatform.domain.model.reel.ReelReport> findReports(int page, int pageSize);
+    List<ReelReport> findReports(int page, int pageSize);
 
     /**
      * Finds reports by status.
      */
-    List<com.travelplatform.domain.model.reel.ReelReport> findReportsByStatus(
-            com.travelplatform.application.service.admin.AdminModerationService.ReportStatus status, int page,
+    List<ReelReport> findReportsByStatus(
+            ReelReport.ReportStatus status, int page,
             int pageSize);
 
     /**
      * Finds report by ID.
      */
-    Optional<com.travelplatform.domain.model.reel.ReelReport> findReportById(UUID id);
+    Optional<ReelReport> findReportById(UUID id);
 
     /**
      * Saves a report.
      */
-    void saveReport(com.travelplatform.domain.model.reel.ReelReport report);
+    void saveReport(TravelReel travelReel);
 
     /**
      * Finds trending reels (high engagement).
@@ -408,5 +406,4 @@ public interface TravelReelRepository {
 
     long countReportsByReel(UUID reelId);
 
-    void saveReport(com.travelplatform.domain.model.reel.ReelReport report);
 }

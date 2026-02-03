@@ -51,6 +51,7 @@ public class AuthenticationService {
         }
 
         // Create new user
+
         User user = new User(
                 UUID.randomUUID(),
                 request.getEmail(),

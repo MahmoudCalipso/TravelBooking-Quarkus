@@ -2,6 +2,8 @@ package com.travelplatform.application.dto.response.booking;
 
 import com.travelplatform.domain.enums.BookingStatus;
 import com.travelplatform.domain.enums.PaymentStatus;
+import com.travelplatform.domain.model.booking.BookingPayment;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,7 +53,7 @@ public class BookingResponse {
         private UUID id;
         private BigDecimal amount;
         private String currency;
-        private String paymentMethod;
+        private BookingPayment.PaymentMethod paymentMethod;
         private String paymentProvider;
         private String transactionId;
         private PaymentStatus status;
@@ -59,7 +61,7 @@ public class BookingResponse {
 
         public PaymentInfoResponse() {}
 
-        public PaymentInfoResponse(UUID id, BigDecimal amount, String currency, String paymentMethod,
+        public PaymentInfoResponse(UUID id, BigDecimal amount, String currency, BookingPayment.PaymentMethod paymentMethod,
                                    String paymentProvider, String transactionId, PaymentStatus status, LocalDateTime paidAt) {
             this.id = id;
             this.amount = amount;
@@ -78,8 +80,8 @@ public class BookingResponse {
         public void setAmount(BigDecimal amount) { this.amount = amount; }
         public String getCurrency() { return currency; }
         public void setCurrency(String currency) { this.currency = currency; }
-        public String getPaymentMethod() { return paymentMethod; }
-        public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+        public BookingPayment.PaymentMethod getPaymentMethod() { return paymentMethod; }
+        public void setPaymentMethod(BookingPayment.PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
         public String getPaymentProvider() { return paymentProvider; }
         public void setPaymentProvider(String paymentProvider) { this.paymentProvider = paymentProvider; }
         public String getTransactionId() { return transactionId; }

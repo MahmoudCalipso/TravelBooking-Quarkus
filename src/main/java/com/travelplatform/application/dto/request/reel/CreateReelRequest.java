@@ -1,5 +1,6 @@
 package com.travelplatform.application.dto.request.reel;
 
+import com.travelplatform.domain.model.reel.TravelReel;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.List;
@@ -53,7 +54,7 @@ public class CreateReelRequest {
 
     @NotNull(message = "Creator type is required")
     @Pattern(regexp = "TRAVELER|SUPPLIER_SUBSCRIBER", message = "Invalid creator type")
-    private String creatorType;
+    private TravelReel.CreatorType creatorType;
 
     // Getters and Setters
 
@@ -153,11 +154,11 @@ public class CreateReelRequest {
         this.visibility = visibility;
     }
 
-    public String getCreatorType() {
+    public TravelReel.CreatorType getCreatorType() {
         return creatorType;
     }
 
-    public void setCreatorType(String creatorType) {
+    public void setCreatorType(TravelReel.CreatorType creatorType) {
         this.creatorType = creatorType;
     }
 }

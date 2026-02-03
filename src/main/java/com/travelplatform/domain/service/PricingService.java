@@ -44,7 +44,7 @@ public class PricingService {
         }
 
         DateRange dateRange = new DateRange(checkInDate, checkOutDate);
-        int nights = dateRange.getNights();
+        long nights = dateRange.getNights();
 
         Money basePrice = accommodation.getBasePrice();
         Money totalBasePrice = basePrice.multiply(nights);
@@ -210,7 +210,7 @@ public class PricingService {
     /**
      * Calculates the refund amount for a cancelled booking.
      *
-     * @param booking            booking to cancel
+     * @param totalPrice            booking to cancel
      * @param cancellationPolicy cancellation policy
      * @param daysBeforeCheckIn  days before check-in
      * @return refund amount

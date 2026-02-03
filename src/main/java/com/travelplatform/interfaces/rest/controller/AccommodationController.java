@@ -24,6 +24,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -72,8 +73,8 @@ public class AccommodationController {
             @QueryParam("city") String city,
             @QueryParam("country") String country,
             @QueryParam("type") String type,
-            @QueryParam("minPrice") Double minPrice,
-            @QueryParam("maxPrice") Double maxPrice,
+            @QueryParam("minPrice") BigDecimal minPrice,
+            @QueryParam("maxPrice") BigDecimal maxPrice,
             @QueryParam("maxGuests") Integer maxGuests,
             @QueryParam("bedrooms") Integer bedrooms,
             @QueryParam("checkIn") LocalDate checkIn,
@@ -396,7 +397,7 @@ public class AccommodationController {
             String supplierId = securityContext.getUserPrincipal().getName();
             log.info("Get my accommodations request for supplier: {}", supplierId);
 
-            PageResponse<AccommodationResponse> accommodations = accommodationService
+            List<AccommodationResponse> accommodations = accommodationService
                     .getAccommodationsBySupplier(UUID.fromString(supplierId), page, pageSize);
 
             return Response.ok()

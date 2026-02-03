@@ -184,10 +184,9 @@ public class DatabaseConfig {
         Map<String, Object> properties = new HashMap<>();
         
         // Get some key properties
-        properties.put("dialect", sessionFactory.getDialect().toString());
+        properties.put("dialect", sessionFactory.getName().toString());
         properties.put("defaultBatchFetchSize", sessionFactory.getSessionFactoryOptions().getDefaultBatchFetchSize());
         properties.put("defaultBatchSize", sessionFactory.getSessionFactoryOptions().getJdbcBatchSize());
-        properties.put("fetchSize", sessionFactory.getSessionFactoryOptions().getDefaultFetchSize());
         
         return properties;
     }
@@ -205,7 +204,6 @@ public class DatabaseConfig {
         if (statistics != null && statistics.isStatisticsEnabled()) {
             stats.put("queryPlanCacheHitCount", statistics.getQueryPlanCacheHitCount());
             stats.put("queryPlanCacheMissCount", statistics.getQueryPlanCacheMissCount());
-            stats.put("queryPlanCacheSize", statistics.getQueryPlanCacheSize());
         }
         
         return stats;

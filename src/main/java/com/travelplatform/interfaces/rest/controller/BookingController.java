@@ -450,7 +450,7 @@ public class BookingController {
             String supplierId = securityContext.getUserPrincipal().getName();
             log.info("Confirm booking request: {} by supplier: {}", bookingId, supplierId);
             
-            bookingService.confirmBooking(UUID.fromString(supplierId), bookingId);
+            bookingService.confirmBooking(bookingId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Booking confirmed successfully"))
