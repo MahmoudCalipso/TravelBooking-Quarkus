@@ -120,13 +120,7 @@ public class BookingValidator {
             throw new IllegalArgumentException("Guest message cannot exceed " + MAX_GUEST_MESSAGE_LENGTH + " characters");
         }
 
-        // Use domain validation service
-        validationService.validateBooking(
-            request.getAccommodationId(),
-            request.getCheckInDate(),
-            request.getCheckOutDate(),
-            request.getNumberOfGuests()
-        );
+        // Domain validation service requires an Accommodation instance; handled at service layer.
     }
 
     /**

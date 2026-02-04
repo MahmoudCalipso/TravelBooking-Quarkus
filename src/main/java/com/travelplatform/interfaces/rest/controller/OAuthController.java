@@ -63,10 +63,8 @@ public class OAuthController {
         try {
             // Validate provider
             if (!OAuthProvider.isValidProvider(provider)) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_PROVIDER");
-                error.setMessage("Invalid OAuth provider. Supported providers: google, microsoft, apple");
+                ErrorResponse error = new ErrorResponse("INVALID_PROVIDER",
+                        "Invalid OAuth provider. Supported providers: google, microsoft, apple");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -77,10 +75,8 @@ public class OAuthController {
             try {
                 userRole = UserRole.valueOf(role.toUpperCase());
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_ROLE");
-                error.setMessage("Invalid role. Supported roles: TRAVELER, SUPPLIER_SUBSCRIBER");
+                ErrorResponse error = new ErrorResponse("INVALID_ROLE",
+                        "Invalid role. Supported roles: TRAVELER, SUPPLIER_SUBSCRIBER");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -88,10 +84,8 @@ public class OAuthController {
 
             // Validate role is allowed for OAuth
             if (userRole != UserRole.TRAVELER && userRole != UserRole.SUPPLIER_SUBSCRIBER) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_ROLE_FOR_OAUTH");
-                error.setMessage("OAuth authentication is only available for TRAVELER and SUPPLIER_SUBSCRIBER roles");
+                ErrorResponse error = new ErrorResponse("INVALID_ROLE_FOR_OAUTH",
+                        "OAuth authentication is only available for TRAVELER and SUPPLIER_SUBSCRIBER roles");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -119,10 +113,8 @@ public class OAuthController {
 
         } catch (Exception e) {
             log.error("Error generating OAuth authorization URL", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("AUTHORIZATION_ERROR");
-            error.setMessage("Failed to generate authorization URL: " + e.getMessage());
+            ErrorResponse error = new ErrorResponse("AUTHORIZATION_ERROR",
+                    "Failed to generate authorization URL: " + e.getMessage());
             return Response.serverError().entity(error).build();
         }
     }
@@ -144,35 +136,19 @@ public class OAuthController {
         try {
             // Validate provider
             if (!OAuthProvider.isValidProvider(request.getProvider())) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_PROVIDER");
-                error.setMessage("Invalid OAuth provider");
+                ErrorResponse error = new ErrorResponse("INVALID_PROVIDER", "Invalid OAuth provider");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Validate role
-            UserRole userRole;
-            try {
-                userRole = UserRole.valueOf(request.getRole().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_ROLE");
-                error.setMessage("Invalid role");
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(error)
-                        .build();
-            }
+            UserRole userRole = request.getRole();
 
             // Validate role is allowed for OAuth
             if (userRole != UserRole.TRAVELER && userRole != UserRole.SUPPLIER_SUBSCRIBER) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_ROLE_FOR_OAUTH");
-                error.setMessage("OAuth authentication is only available for TRAVELER and SUPPLIER_SUBSCRIBER roles");
+                ErrorResponse error = new ErrorResponse("INVALID_ROLE_FOR_OAUTH",
+                        "OAuth authentication is only available for TRAVELER and SUPPLIER_SUBSCRIBER roles");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -205,21 +181,14 @@ public class OAuthController {
 
             return Response.ok(response).build();
 
-        } catch (OAuthService.OAuthAuthenticationException e) {
-            log.error("OAuth authentication failed", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("OAUTH_AUTHENTICATION_FAILED");
-            error.setMessage(e.getMessage());
-            return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(error)
-                    .build();
+        } catch (UnsupportedOperationException e) {
+            log.error("OAuth callback not implemented", e);
+            ErrorResponse error = new ErrorResponse("OAUTH_NOT_IMPLEMENTED", e.getMessage());
+            return Response.status(Response.Status.NOT_IMPLEMENTED).entity(error).build();
         } catch (Exception e) {
             log.error("Unexpected error during OAuth callback", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred during OAuth authentication");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR",
+                    "An unexpected error occurred during OAuth authentication");
             return Response.serverError().entity(error).build();
         }
     }
@@ -256,10 +225,9 @@ public class OAuthController {
 
         } catch (Exception e) {
             log.error("Error retrieving OAuth providers information", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("PROVIDERS_ERROR");
-            error.setMessage("Failed to retrieve OAuth providers information");
+            ErrorResponse error = new ErrorResponse(
+                    "PROVIDERS_ERROR",
+                    "Failed to retrieve OAuth providers information");
             return Response.serverError().entity(error).build();
         }
     }
@@ -278,10 +246,7 @@ public class OAuthController {
         try {
             // Validate provider
             if (!OAuthProvider.isValidProvider(provider)) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_PROVIDER");
-                error.setMessage("Invalid OAuth provider");
+                ErrorResponse error = new ErrorResponse("INVALID_PROVIDER", "Invalid OAuth provider");
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(error)
                         .build();
@@ -303,10 +268,8 @@ public class OAuthController {
 
         } catch (Exception e) {
             log.error("Error retrieving OAuth provider information", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("PROVIDER_ERROR");
-            error.setMessage("Failed to retrieve OAuth provider information");
+            ErrorResponse error = new ErrorResponse("PROVIDER_ERROR",
+                    "Failed to retrieve OAuth provider information");
             return Response.serverError().entity(error).build();
         }
     }

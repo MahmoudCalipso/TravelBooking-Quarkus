@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -53,7 +54,7 @@ public class AdminAnalyticsController {
         try {
             log.info("Get platform overview request");
             
-            Map<String, Object> overview = adminAnalyticsService.getPlatformOverview();
+            AdminAnalyticsService.PlatformOverview overview = adminAnalyticsService.getPlatformOverview();
             
             return Response.ok()
                     .entity(new SuccessResponse<>(overview, "Overview retrieved successfully"))
@@ -89,8 +90,8 @@ public class AdminAnalyticsController {
         try {
             log.info("Get accommodation statistics request");
             
-            Map<String, Object> statistics = 
-                    adminAnalyticsService.getAccommodationStatistics(startDate, endDate);
+            AdminAnalyticsService.AccommodationAnalytics statistics =
+                    adminAnalyticsService.getAccommodationAnalytics();
             
             return Response.ok()
                     .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -126,8 +127,8 @@ public class AdminAnalyticsController {
         try {
             log.info("Get reel statistics request");
             
-            Map<String, Object> statistics = 
-                    adminAnalyticsService.getReelStatistics(startDate, endDate);
+            AdminAnalyticsService.ReelAnalytics statistics =
+                    adminAnalyticsService.getReelAnalytics();
             
             return Response.ok()
                     .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -163,8 +164,8 @@ public class AdminAnalyticsController {
         try {
             log.info("Get booking statistics request");
             
-            Map<String, Object> statistics = 
-                    adminAnalyticsService.getBookingStatistics(startDate, endDate);
+            AdminAnalyticsService.BookingAnalytics statistics =
+                    adminAnalyticsService.getBookingAnalytics();
             
             return Response.ok()
                     .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -200,8 +201,10 @@ public class AdminAnalyticsController {
         try {
             log.info("Get revenue reports request");
             
-            Map<String, Object> revenue = 
-                    adminAnalyticsService.getRevenueReports(startDate, endDate);
+            LocalDate resolvedStart = startDate != null ? startDate : LocalDate.now().minusDays(30);
+            LocalDate resolvedEnd = endDate != null ? endDate : LocalDate.now();
+            AdminAnalyticsService.RevenueAnalytics revenue =
+                    adminAnalyticsService.getRevenueAnalytics(resolvedStart, resolvedEnd);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(revenue, "Revenue reports retrieved successfully"))
@@ -237,8 +240,8 @@ public class AdminAnalyticsController {
         try {
             log.info("Get user statistics request");
             
-            Map<String, Object> statistics = 
-                    adminAnalyticsService.getUserStatistics(startDate, endDate);
+            AdminAnalyticsService.UserAnalytics statistics =
+                    adminAnalyticsService.getUserAnalytics();
             
             return Response.ok()
                     .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -274,8 +277,9 @@ public class AdminAnalyticsController {
         try {
             log.info("Get content statistics request");
             
-            Map<String, Object> statistics = 
-                    adminAnalyticsService.getContentStatistics(startDate, endDate);
+            Map<String, Object> statistics = new HashMap<>();
+            statistics.put("reels", adminAnalyticsService.getReelAnalytics());
+            statistics.put("reviews", adminAnalyticsService.getReviewAnalytics());
             
             return Response.ok()
                     .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))

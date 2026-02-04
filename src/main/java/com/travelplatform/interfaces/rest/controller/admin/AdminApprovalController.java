@@ -12,8 +12,10 @@ import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
@@ -21,6 +23,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -61,13 +64,16 @@ public class AdminApprovalController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get pending accommodations request");
-            
-            PageResponse<AccommodationResponse> accommodations = 
-                    adminApprovalService.getPendingAccommodations(page, pageSize);
-            
-            return Response.ok()
-                    .entity(accommodations)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<AccommodationResponse> accommodations =
+                    adminApprovalService.getPendingAccommodations(pageIndex, pageSize);
+            long totalItems = adminApprovalService.getPendingAccommodationsCount();
+
+            PageResponse<AccommodationResponse> response =
+                    toPageResponse(accommodations, page, pageSize, totalItems);
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting pending accommodations", e);
@@ -93,11 +99,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "403", description = "Insufficient permissions"),
         @APIResponse(responseCode = "404", description = "Accommodation not found")
     })
-    public Response approveAccommodation(@PathParam("accommodationId") UUID accommodationId) {
+    public Response approveAccommodation(
+            @Context SecurityContext securityContext,
+            @PathParam("accommodationId") UUID accommodationId) {
         try {
             log.info("Approve accommodation request: {}", accommodationId);
-            
-            adminApprovalService.approveAccommodation(accommodationId);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.approveAccommodation(adminId, accommodationId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Accommodation approved successfully"))
@@ -134,12 +143,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "404", description = "Accommodation not found")
     })
     public Response rejectAccommodation(
+            @Context SecurityContext securityContext,
             @PathParam("accommodationId") UUID accommodationId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject accommodation request: {}", accommodationId);
-            
-            adminApprovalService.rejectAccommodation(accommodationId, reason);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.rejectAccommodation(adminId, accommodationId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Accommodation rejected successfully"))
@@ -179,13 +190,14 @@ public class AdminApprovalController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get pending reels request");
-            
-            PageResponse<ReelResponse> reels = 
-                    adminApprovalService.getPendingReels(page, pageSize);
-            
-            return Response.ok()
-                    .entity(reels)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> reels = adminApprovalService.getPendingReels(pageIndex, pageSize);
+            long totalItems = adminApprovalService.getPendingReelsCount();
+            PageResponse<ReelResponse> response =
+                    toPageResponse(reels, page, pageSize, totalItems);
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting pending reels", e);
@@ -211,11 +223,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "403", description = "Insufficient permissions"),
         @APIResponse(responseCode = "404", description = "Reel not found")
     })
-    public Response approveReel(@PathParam("reelId") UUID reelId) {
+    public Response approveReel(
+            @Context SecurityContext securityContext,
+            @PathParam("reelId") UUID reelId) {
         try {
             log.info("Approve reel request: {}", reelId);
-            
-            adminApprovalService.approveReel(reelId);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.approveReel(adminId, reelId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Reel approved successfully"))
@@ -252,12 +267,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "404", description = "Reel not found")
     })
     public Response rejectReel(
+            @Context SecurityContext securityContext,
             @PathParam("reelId") UUID reelId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject reel request: {}", reelId);
-            
-            adminApprovalService.rejectReel(reelId, reason);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.rejectReel(adminId, reelId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Reel rejected successfully"))
@@ -297,13 +314,14 @@ public class AdminApprovalController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get pending events request");
-            
-            PageResponse<EventResponse> events = 
-                    adminApprovalService.getPendingEvents(page, pageSize);
-            
-            return Response.ok()
-                    .entity(events)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<EventResponse> events = adminApprovalService.getPendingEvents(pageIndex, pageSize);
+            long totalItems = adminApprovalService.getPendingEventsCount();
+            PageResponse<EventResponse> response =
+                    toPageResponse(events, page, pageSize, totalItems);
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting pending events", e);
@@ -329,11 +347,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "403", description = "Insufficient permissions"),
         @APIResponse(responseCode = "404", description = "Event not found")
     })
-    public Response approveEvent(@PathParam("eventId") UUID eventId) {
+    public Response approveEvent(
+            @Context SecurityContext securityContext,
+            @PathParam("eventId") UUID eventId) {
         try {
             log.info("Approve event request: {}", eventId);
-            
-            adminApprovalService.approveEvent(eventId);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.approveEvent(adminId, eventId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event approved successfully"))
@@ -370,12 +391,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "404", description = "Event not found")
     })
     public Response rejectEvent(
+            @Context SecurityContext securityContext,
             @PathParam("eventId") UUID eventId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject event request: {}", eventId);
-            
-            adminApprovalService.rejectEvent(eventId, reason);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.rejectEvent(adminId, eventId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event rejected successfully"))
@@ -415,13 +438,14 @@ public class AdminApprovalController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get pending reviews request");
-            
-            PageResponse<ReviewResponse> reviews = 
-                    adminApprovalService.getPendingReviews(page, pageSize);
-            
-            return Response.ok()
-                    .entity(reviews)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<ReviewResponse> reviews = adminApprovalService.getPendingReviews(pageIndex, pageSize);
+            long totalItems = adminApprovalService.getPendingReviewsCount();
+            PageResponse<ReviewResponse> response =
+                    toPageResponse(reviews, page, pageSize, totalItems);
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting pending reviews", e);
@@ -447,11 +471,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "403", description = "Insufficient permissions"),
         @APIResponse(responseCode = "404", description = "Review not found")
     })
-    public Response approveReview(@PathParam("reviewId") UUID reviewId) {
+    public Response approveReview(
+            @Context SecurityContext securityContext,
+            @PathParam("reviewId") UUID reviewId) {
         try {
             log.info("Approve review request: {}", reviewId);
-            
-            adminApprovalService.approveReview(reviewId);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.approveReview(adminId, reviewId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review approved successfully"))
@@ -488,12 +515,14 @@ public class AdminApprovalController {
         @APIResponse(responseCode = "404", description = "Review not found")
     })
     public Response rejectReview(
+            @Context SecurityContext securityContext,
             @PathParam("reviewId") UUID reviewId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject review request: {}", reviewId);
-            
-            adminApprovalService.rejectReview(reviewId, reason);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminApprovalService.rejectReview(adminId, reviewId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review rejected successfully"))
@@ -529,11 +558,11 @@ public class AdminApprovalController {
     public Response getApprovalQueueStatistics() {
         try {
             log.info("Get approval queue statistics request");
-            
-            Map<String, Long> statistics = adminApprovalService.getApprovalQueueStatistics();
-            
+
+            AdminApprovalService.ApprovalQueueSummary summary = adminApprovalService.getApprovalQueueSummary();
+
             return Response.ok()
-                    .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
+                    .entity(new SuccessResponse<>(summary, "Statistics retrieved successfully"))
                     .build();
                     
         } catch (Exception e) {
@@ -542,5 +571,19 @@ public class AdminApprovalController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private int toPageIndex(int page) {
+        return Math.max(page - 1, 0);
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> data, int page, int pageSize, long totalItems) {
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        PageResponse.PaginationInfo pagination = new PageResponse.PaginationInfo(
+                safePage,
+                safePageSize,
+                totalItems);
+        return new PageResponse<>(data, pagination);
     }
 }

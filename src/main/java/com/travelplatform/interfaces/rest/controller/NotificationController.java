@@ -5,6 +5,7 @@ import com.travelplatform.application.dto.response.common.PageResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.dto.response.notification.NotificationResponse;
 import com.travelplatform.application.service.notification.NotificationService;
+import com.travelplatform.domain.enums.NotificationType;
 import io.quarkus.security.Authenticated;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -63,13 +64,34 @@ public class NotificationController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get notifications request for user: {}", userId);
             
-            PageResponse<NotificationResponse> notifications = notificationService.getNotifications(
-                    UUID.fromString(userId), type, isRead, page, pageSize);
+            UUID userUuid = UUID.fromString(userId);
+            java.util.List<NotificationResponse> notifications;
+            NotificationType typeFilter = parseType(type);
+
+            if (typeFilter != null) {
+                notifications = notificationService.getNotificationsByType(userUuid, typeFilter, page, pageSize);
+            } else if (isRead != null && !isRead) {
+                notifications = notificationService.getUnreadNotifications(userUuid, page, pageSize);
+            } else {
+                notifications = notificationService.getUserNotifications(userUuid, page, pageSize);
+                if (isRead != null) {
+                    notifications = notifications.stream()
+                            .filter(n -> isRead.equals(n.getIsRead()))
+                            .toList();
+                }
+            }
+
+            PageResponse<NotificationResponse> response = buildPageResponse(notifications, page, pageSize);
             
             return Response.ok()
-                    .entity(notifications)
+                    .entity(response)
                     .build();
                     
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid notification type: {}", e.getMessage());
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("INVALID_TYPE", e.getMessage()))
+                    .build();
         } catch (Exception e) {
             log.error("Unexpected error getting notifications", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -224,5 +246,19 @@ public class NotificationController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private NotificationType parseType(String type) {
+        if (type == null || type.isBlank()) {
+            return null;
+        }
+        return NotificationType.valueOf(type.toUpperCase());
+    }
+
+    private PageResponse<NotificationResponse> buildPageResponse(
+            java.util.List<NotificationResponse> data, int page, int pageSize) {
+        PageResponse.PaginationInfo pagination =
+                new PageResponse.PaginationInfo(page, pageSize, (long) data.size());
+        return new PageResponse<>(data, pagination);
     }
 }

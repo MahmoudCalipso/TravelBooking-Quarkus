@@ -71,6 +71,14 @@ public class UserService {
     }
 
     /**
+     * Alias for current user profile (controller compatibility).
+     */
+    @Transactional
+    public ProfileResponse getProfile(UUID userId) {
+        return getCurrentUserProfile(userId);
+    }
+
+    /**
      * Get public user profile by ID.
      */
     @Transactional
@@ -81,9 +89,9 @@ public class UserService {
         ProfileResponse response = userMapper.toProfileResponse(user.getProfile());
 
         // Mask sensitive information for public profile
-        if (response.getProfile() != null) {
-            response.getProfile().setPhoneNumber(null);
-            response.getProfile().setDrivingLicenseCategory(null);
+        if (response != null) {
+            response.setPhoneNumber(null);
+            response.setDrivingLicenseCategory(null);
         }
 
         return response;
@@ -116,6 +124,26 @@ public class UserService {
     }
 
     /**
+     * Update user profile photo.
+     */
+    @Transactional
+    public ProfileResponse updateProfilePhoto(UUID userId, String photoUrl) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        UserProfile profile = user.getProfile();
+        if (profile == null) {
+            profile = new UserProfile(user.getId());
+            user.setProfile(profile);
+        }
+
+        profile.setPhotoUrl(photoUrl);
+        userRepository.save(user);
+
+        return userMapper.toProfileResponse(user.getProfile());
+    }
+
+    /**
      * Update user preferences.
      */
     @Transactional
@@ -138,7 +166,25 @@ public class UserService {
         // Save updated user
         userRepository.save(user);
 
-        return userMapper.toPreferencesResponse(user);
+        return userMapper.toPreferencesResponse(user.getPreferences());
+    }
+
+    /**
+     * Get user preferences.
+     */
+    @Transactional
+    public PreferencesResponse getPreferences(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        UserPreferences preferences = user.getPreferences();
+        if (preferences == null) {
+            preferences = new UserPreferences(user.getId());
+            user.setPreferences(preferences);
+            userRepository.save(user);
+        }
+
+        return userMapper.toPreferencesResponse(preferences);
     }
 
     /**

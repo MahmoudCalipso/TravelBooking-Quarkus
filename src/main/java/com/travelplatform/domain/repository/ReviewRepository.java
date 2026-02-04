@@ -24,6 +24,14 @@ public interface ReviewRepository {
     Review save(Review review);
 
     /**
+     * Saves a helpful vote.
+     *
+     * @param helpful helpful vote to save
+     * @return saved helpful vote
+     */
+    ReviewHelpful saveHelpful(ReviewHelpful helpful);
+
+    /**
      * Updates an existing review.
      *
      * @param review review to update

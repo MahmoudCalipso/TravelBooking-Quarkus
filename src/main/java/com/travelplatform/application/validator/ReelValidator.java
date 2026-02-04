@@ -2,11 +2,15 @@ package com.travelplatform.application.validator;
 
 import com.travelplatform.application.dto.request.reel.CreateReelRequest;
 import com.travelplatform.domain.enums.VisibilityScope;
+import com.travelplatform.domain.model.reel.TravelReel;
+import com.travelplatform.domain.valueobject.Location;
 import com.travelplatform.domain.service.ValidationService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Validator for reel-related operations.
@@ -92,22 +96,42 @@ public class ReelValidator {
                 throw new IllegalArgumentException("Both latitude and longitude must be provided");
             }
 
-            if (request.getLocationLatitude() < -90 || request.getLocationLatitude() > 90) {
+            if (request.getLocationLatitude().compareTo(BigDecimal.valueOf(-90)) < 0
+                    || request.getLocationLatitude().compareTo(BigDecimal.valueOf(90)) > 0) {
                 throw new IllegalArgumentException("Invalid latitude value");
             }
 
-            if (request.getLocationLongitude() < -180 || request.getLocationLongitude() > 180) {
+            if (request.getLocationLongitude().compareTo(BigDecimal.valueOf(-180)) < 0
+                    || request.getLocationLongitude().compareTo(BigDecimal.valueOf(180)) > 0) {
                 throw new IllegalArgumentException("Invalid longitude value");
             }
         }
 
         // Use domain validation service
-        validationService.validateReel(
-            request.getTitle(),
-            request.getDescription(),
-            request.getVideoUrl(),
-            request.getThumbnailUrl()
-        );
+        Location location = null;
+        if (request.getLocationLatitude() != null && request.getLocationLongitude() != null) {
+            location = new Location(request.getLocationLatitude().doubleValue(),
+                    request.getLocationLongitude().doubleValue());
+        }
+
+        VisibilityScope visibility = request.getVisibility() != null
+                ? VisibilityScope.valueOf(request.getVisibility())
+                : VisibilityScope.PUBLIC;
+
+        TravelReel tempReel = new TravelReel(
+                UUID.randomUUID(),
+                TravelReel.CreatorType.TRAVELER,
+                request.getVideoUrl(),
+                request.getThumbnailUrl(),
+                request.getDuration() != null ? request.getDuration() : MIN_DURATION,
+                location != null ? location : new Location(0.0, 0.0),
+                request.getLocationName(),
+                visibility,
+                false);
+        tempReel.setTitle(request.getTitle());
+        tempReel.setDescription(request.getDescription());
+
+        validationService.validateReel(tempReel);
     }
 
     /**

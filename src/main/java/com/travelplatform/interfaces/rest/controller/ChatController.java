@@ -110,10 +110,11 @@ public class ChatController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get my chat groups request for user: {}", userId);
             
-            var groups = chatService.getChatGroupsByUser(UUID.fromString(userId), page, pageSize);
+            var groups = chatService.getUserChatGroups(UUID.fromString(userId), page, pageSize);
+            PageResponse<?> response = buildPageResponse(groups, page, pageSize);
             
             return Response.ok()
-                    .entity(groups)
+                    .entity(response)
                     .build();
                     
         } catch (Exception e) {
@@ -151,11 +152,11 @@ public class ChatController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get chat group messages request for group: {} by user: {}", groupId, userId);
             
-            PageResponse<MessageResponse> messages = chatService.getChatGroupMessages(
-                    UUID.fromString(userId), groupId, page, pageSize);
+            var messages = chatService.getChatGroupMessages(groupId, page, pageSize);
+            PageResponse<MessageResponse> response = buildPageResponse(messages, page, pageSize);
             
             return Response.ok()
-                    .entity(messages)
+                    .entity(response)
                     .build();
                     
         } catch (IllegalArgumentException e) {
@@ -201,11 +202,11 @@ public class ChatController {
             String senderId = securityContext.getUserPrincipal().getName();
             log.info("Send group message request to group: {} by user: {}", groupId, senderId);
             
-            chatService.sendChatMessage(
+            MessageResponse messageResponse = chatService.sendGroupMessage(
                     UUID.fromString(senderId), groupId, message, messageType, attachmentUrl);
             
             return Response.status(Response.Status.CREATED)
-                    .entity(new SuccessResponse<>(null, "Message sent successfully"))
+                    .entity(new SuccessResponse<>(messageResponse, "Message sent successfully"))
                     .build();
                     
         } catch (IllegalArgumentException e) {
@@ -249,7 +250,7 @@ public class ChatController {
             String creatorId = securityContext.getUserPrincipal().getName();
             log.info("Add member to group request: {} by user: {}", groupId, creatorId);
             
-            chatService.addGroupMember(UUID.fromString(creatorId), groupId, userId);
+            chatService.addGroupMember(groupId, userId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Member added successfully"))
@@ -295,7 +296,7 @@ public class ChatController {
             String creatorId = securityContext.getUserPrincipal().getName();
             log.info("Remove member from group request: {} by user: {}", groupId, creatorId);
             
-            chatService.removeGroupMember(UUID.fromString(creatorId), groupId, userId);
+            chatService.removeGroupMember(groupId, userId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Member removed successfully"))
@@ -333,10 +334,11 @@ public class ChatController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get conversations request for user: {}", userId);
             
-            var conversations = chatService.getConversations(UUID.fromString(userId), page, pageSize);
+            var conversations = chatService.getUserConversations(UUID.fromString(userId), page, pageSize);
+            PageResponse<?> response = buildPageResponse(conversations, page, pageSize);
             
             return Response.ok()
-                    .entity(conversations)
+                    .entity(response)
                     .build();
                     
         } catch (Exception e) {
@@ -374,11 +376,11 @@ public class ChatController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get conversation messages request for conversation: {} by user: {}", conversationId, userId);
             
-            PageResponse<MessageResponse> messages = chatService.getConversationMessages(
-                    UUID.fromString(userId), conversationId, page, pageSize);
+            var messages = chatService.getConversationMessages(conversationId, page, pageSize);
+            PageResponse<MessageResponse> response = buildPageResponse(messages, page, pageSize);
             
             return Response.ok()
-                    .entity(messages)
+                    .entity(response)
                     .build();
                     
         } catch (IllegalArgumentException e) {
@@ -419,10 +421,11 @@ public class ChatController {
             String senderId = securityContext.getUserPrincipal().getName();
             log.info("Send direct message request from: {} to: {}", senderId, recipientId);
             
-            chatService.sendDirectMessage(UUID.fromString(senderId), recipientId, message);
+            UUID conversationId = chatService.getOrCreateConversation(UUID.fromString(senderId), recipientId);
+            MessageResponse messageResponse = chatService.sendDirectMessage(UUID.fromString(senderId), conversationId, message);
             
             return Response.status(Response.Status.CREATED)
-                    .entity(new SuccessResponse<>(null, "Message sent successfully"))
+                    .entity(new SuccessResponse<>(messageResponse, "Message sent successfully"))
                     .build();
                     
         } catch (IllegalArgumentException e) {
@@ -551,5 +554,11 @@ public class ChatController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private <T> PageResponse<T> buildPageResponse(java.util.List<T> data, int page, int pageSize) {
+        PageResponse.PaginationInfo pagination =
+                new PageResponse.PaginationInfo(page, pageSize, (long) data.size());
+        return new PageResponse<>(data, pagination);
     }
 }

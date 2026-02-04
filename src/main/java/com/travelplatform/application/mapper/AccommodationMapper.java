@@ -204,7 +204,10 @@ public interface AccommodationMapper {
             accommodation.setBathrooms(request.getBathrooms());
         }
         if (request.getBasePrice() != null) {
-            accommodation.setBasePrice(new Money(request.getBasePrice(), "USD"));
+            accommodation.setBasePrice(request.getBasePrice());
+            if (request.getCurrency() != null) {
+                accommodation.setCurrency(request.getCurrency());
+            }
         }
         if (request.getMinimumNights() != null) {
             accommodation.setMinimumNights(request.getMinimumNights());

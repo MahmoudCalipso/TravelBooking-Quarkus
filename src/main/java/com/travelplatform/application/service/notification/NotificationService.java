@@ -73,7 +73,7 @@ public class NotificationService {
      */
     @Transactional
     public List<NotificationResponse> getUserNotifications(UUID userId, int page, int pageSize) {
-        List<Notification> notifications = notificationRepository.findByUserId(userId, page, pageSize);
+        List<Notification> notifications = notificationRepository.findByUserIdPaginated(userId, page, pageSize);
         return notificationMapper.toNotificationResponseList(notifications);
     }
 
@@ -103,7 +103,7 @@ public class NotificationService {
      */
     @Transactional
     public int getUnreadCount(UUID userId) {
-        return notificationRepository.countUnreadByUserId(userId);
+        return Math.toIntExact(notificationRepository.countUnreadByUserId(userId));
     }
 
     /**

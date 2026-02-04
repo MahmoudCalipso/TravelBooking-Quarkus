@@ -232,6 +232,18 @@ public class AccommodationService {
     }
 
     /**
+     * Alias for controller usage.
+     */
+    @Transactional
+    public List<AccommodationResponse> findNearbyAccommodations(Double latitude, Double longitude, Double radiusKm,
+            int page, int pageSize) {
+        double lat = latitude != null ? latitude : 0.0;
+        double lng = longitude != null ? longitude : 0.0;
+        double radius = radiusKm != null ? radiusKm : 10.0;
+        return getNearbyAccommodations(lat, lng, radius, page, pageSize);
+    }
+
+    /**
      * Check availability for accommodation.
      */
     @Transactional
@@ -395,5 +407,67 @@ public class AccommodationService {
 
         accommodation.incrementBookingCount();
         accommodationRepository.save(accommodation);
+    }
+
+    /**
+     * Add accommodation image (basic implementation).
+     */
+    @Transactional
+    public void addImage(UUID supplierId, UUID accommodationId, String imageUrl, String caption, boolean isPrimary) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only update your own accommodations");
+        }
+        int displayOrder = accommodation.getImages().size();
+        AccommodationImage image = new AccommodationImage(accommodationId, imageUrl, displayOrder, isPrimary, caption);
+        accommodation.addImage(image);
+        accommodationRepository.save(accommodation);
+    }
+
+    /**
+     * Remove accommodation image (basic implementation).
+     */
+    @Transactional
+    public void removeImage(UUID supplierId, UUID accommodationId, UUID imageId) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only update your own accommodations");
+        }
+        accommodation.removeImage(imageId);
+        accommodationRepository.save(accommodation);
+    }
+
+    /**
+     * Update availability (placeholder - no availability entity modeled).
+     */
+    @Transactional
+    public void updateAvailability(UUID supplierId, UUID accommodationId, LocalDate date, boolean isAvailable,
+            Double priceOverride) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only update your own accommodations");
+        }
+        // TODO: Persist availability overrides when availability model exists.
+    }
+
+    /**
+     * Get simple analytics for an accommodation.
+     */
+    @Transactional
+    public java.util.Map<String, Object> getAccommodationAnalytics(UUID supplierId, UUID accommodationId) {
+        Accommodation accommodation = accommodationRepository.findById(accommodationId)
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only access your own accommodations");
+        }
+        java.util.Map<String, Object> analytics = new java.util.HashMap<>();
+        analytics.put("viewCount", accommodation.getViewCount());
+        analytics.put("bookingCount", accommodation.getBookingCount());
+        analytics.put("averageRating", accommodation.getAverageRating());
+        analytics.put("reviewCount", accommodation.getReviewCount());
+        return analytics;
     }
 }

@@ -649,27 +649,15 @@ public class Accommodation {
         }
     }
 
-    public void setCurrency(Currency currency) {
-        if (this.basePrice != null && currency != null) {
-            this.basePrice = new Money(this.basePrice.getAmount(), currency);
+    public void setCurrency(String currencyCode) {
+        if (this.basePrice != null && currencyCode != null && !currencyCode.isEmpty()) {
+            this.basePrice = new Money(this.basePrice.getAmount(), currencyCode);
             this.updatedAt = LocalDateTime.now();
         }
     }
 
-    public void setCurrency(String currencyCode) {
-        if (this.basePrice != null && currencyCode != null && !currencyCode.isEmpty()) {
-            try {
-                Currency currency = Currency.getInstance(currencyCode);
-                this.basePrice = new Money(this.basePrice.getAmount(), currency);
-                this.updatedAt = LocalDateTime.now();
-            } catch (IllegalArgumentException e) {
-                // Invalid currency code, skip update
-            }
-        }
-    }
-
-    public Currency getCurrency() {
-        return basePrice != null ? basePrice.getCurrency() : null;
+    public String getCurrency() {
+        return basePrice != null ? basePrice.getCurrencyCode() : null;
     }
 
     public void setImages(List<AccommodationImage> images) {

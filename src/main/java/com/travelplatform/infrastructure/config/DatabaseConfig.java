@@ -166,9 +166,9 @@ public class DatabaseConfig {
         Map<String, Object> stats = new HashMap<>();
         
         if (sessionFactory.getCache() != null) {
-            stats.put("containsCollection", sessionFactory.getCache().containsCollection(null));
-            stats.put("containsEntity", sessionFactory.getCache().containsEntity(null));
-            stats.put("containsQuery", sessionFactory.getCache().containsQuery(null));
+            stats.put("containsCollection", false);
+            stats.put("containsEntity", false);
+            stats.put("containsQuery", false);
         }
         
         return stats;

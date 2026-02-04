@@ -99,6 +99,10 @@ public class User {
         return status;
     }
 
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
     public boolean isEmailVerified() {
         return emailVerified;
     }
@@ -140,6 +144,27 @@ public class User {
      */
     public void setPreferences(UserPreferences preferences) {
         this.preferences = preferences;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        if (passwordHash == null || passwordHash.trim().isEmpty()) {
+            throw new IllegalArgumentException("Password hash cannot be null or empty");
+        }
+        this.passwordHash = passwordHash;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setStatus(UserStatus status) {
+        if (status == null) {
+            throw new IllegalArgumentException("Status cannot be null");
+        }
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
         this.updatedAt = LocalDateTime.now();
     }
 

@@ -393,11 +393,12 @@ public class UserController {
         try {
             log.info("Get followers request for user: {}", userId);
 
-            PageResponse<UserResponse> followers = userService.getFollowers(userId, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<UserResponse> followers = userService.getFollowers(userId, pageIndex, pageSize);
+            PageResponse<UserResponse> response =
+                    toPageResponse(followers, page, pageSize, followers.size());
 
-            return Response.ok()
-                    .entity(followers)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting followers", e);
@@ -430,11 +431,12 @@ public class UserController {
         try {
             log.info("Get following request for user: {}", userId);
 
-            PageResponse<UserResponse> following = userService.getFollowing(userId, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<UserResponse> following = userService.getFollowing(userId, pageIndex, pageSize);
+            PageResponse<UserResponse> response =
+                    toPageResponse(following, page, pageSize, following.size());
 
-            return Response.ok()
-                    .entity(following)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting following", e);
@@ -466,11 +468,12 @@ public class UserController {
         try {
             log.info("Search users request: {}", query);
 
-            PageResponse<UserResponse> users = userService.searchUsers(query, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<UserResponse> users = userService.searchUsers(query, pageIndex, pageSize);
+            PageResponse<UserResponse> response =
+                    toPageResponse(users, page, pageSize, users.size());
 
-            return Response.ok()
-                    .entity(users)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error searching users", e);
@@ -605,5 +608,19 @@ public class UserController {
         } catch (Exception e) {
             log.error("Error updating last login for user: {}", userId, e);
         }
+    }
+
+    private int toPageIndex(int page) {
+        return Math.max(page - 1, 0);
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> data, int page, int pageSize, long totalItems) {
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        PageResponse.PaginationInfo pagination = new PageResponse.PaginationInfo(
+                safePage,
+                safePageSize,
+                totalItems);
+        return new PageResponse<>(data, pagination);
     }
 }

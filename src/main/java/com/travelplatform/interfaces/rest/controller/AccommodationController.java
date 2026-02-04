@@ -95,15 +95,18 @@ public class AccommodationController {
             request.setMaxPrice(maxPrice);
             request.setMaxGuests(maxGuests);
             request.setBedrooms(bedrooms);
-            request.setCheckIn(checkIn);
-            request.setCheckOut(checkOut);
+            request.setCheckInDate(checkIn);
+            request.setCheckOutDate(checkOut);
             request.setAmenities(amenities);
             request.setPage(page);
             request.setPageSize(pageSize);
             request.setSortBy(sortBy);
             request.setSortOrder(sortOrder);
 
-            PageResponse<AccommodationResponse> accommodations = accommodationService.searchAccommodations(request);
+            List<AccommodationResponse> results = accommodationService.searchAccommodations(request);
+            PageResponse<AccommodationResponse> accommodations = new PageResponse<>(
+                    results,
+                    new PageResponse.PaginationInfo(page, pageSize, (long) results.size()));
 
             return Response.ok()
                     .entity(accommodations)
@@ -176,12 +179,13 @@ public class AccommodationController {
     public Response checkAvailability(
             @PathParam("accommodationId") UUID accommodationId,
             @QueryParam("checkIn") LocalDate checkIn,
-            @QueryParam("checkOut") LocalDate checkOut) {
+            @QueryParam("checkOut") LocalDate checkOut,
+            @QueryParam("guests") @DefaultValue("1") int guests) {
         try {
             log.info("Check availability request for accommodation: {}, dates: {} to {}", accommodationId, checkIn,
                     checkOut);
 
-            boolean isAvailable = accommodationService.checkAvailability(accommodationId, checkIn, checkOut);
+            boolean isAvailable = accommodationService.checkAvailability(accommodationId, checkIn, checkOut, guests);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(isAvailable, "Availability checked successfully"))
@@ -227,8 +231,11 @@ public class AccommodationController {
             log.info("Find nearby accommodations request - lat: {}, lng: {}, radius: {}km", latitude, longitude,
                     radiusKm);
 
-            PageResponse<AccommodationResponse> accommodations = accommodationService.findNearbyAccommodations(latitude,
+            List<AccommodationResponse> results = accommodationService.findNearbyAccommodations(latitude,
                     longitude, radiusKm, page, pageSize);
+            PageResponse<AccommodationResponse> accommodations = new PageResponse<>(
+                    results,
+                    new PageResponse.PaginationInfo(page, pageSize, (long) results.size()));
 
             return Response.ok()
                     .entity(accommodations)

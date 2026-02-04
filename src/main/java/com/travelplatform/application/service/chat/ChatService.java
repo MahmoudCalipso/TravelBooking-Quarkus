@@ -68,7 +68,7 @@ public class ChatService {
      */
     @Transactional
     public List<ChatGroup> getUserChatGroups(UUID userId, int page, int pageSize) {
-        return chatRepository.findChatGroupsByCreatorId(userId);
+        return chatRepository.findChatGroupsByUser(userId, page, pageSize);
     }
 
     /**
@@ -148,7 +148,7 @@ public class ChatService {
         }
 
         // Delete chat group
-        chatRepository.deleteChatGroup(chatGroupId);
+        chatRepository.deleteChatGroupById(chatGroupId);
     }
 
     /**
@@ -164,11 +164,9 @@ public class ChatService {
 
         // Check if conversation already exists
         return chatRepository.findConversationByParticipants(userId1, userId2)
+                .map(Conversation::getId)
                 .orElseGet(() -> {
-                    // Create new conversation
-                    Conversation conversation = new Conversation(
-                            userId1,
-                            userId2);
+                    Conversation conversation = new Conversation(userId1, userId2);
                     chatRepository.saveConversation(conversation);
                     return conversation.getId();
                 });
@@ -222,7 +220,7 @@ public class ChatService {
     @Transactional
     public List<MessageResponse> getConversationMessages(UUID conversationId, int page, int pageSize) {
         List<DirectMessage> messages = chatRepository.findDirectMessagesByConversation(conversationId, page, pageSize);
-        return chatMapper.toMessageResponseList(messages);
+        return chatMapper.toDirectMessageResponseList(messages);
     }
 
     /**
@@ -278,6 +276,6 @@ public class ChatService {
         }
 
         // Delete conversation
-        chatRepository.deleteConversation(conversationId);
+        chatRepository.deleteConversationById(conversationId);
     }
 }

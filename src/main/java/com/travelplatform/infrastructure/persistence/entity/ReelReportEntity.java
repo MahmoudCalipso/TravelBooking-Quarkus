@@ -1,7 +1,7 @@
 package com.travelplatform.infrastructure.persistence.entity;
 
-import com.travelplatform.domain.enums.ApprovalStatus;
 import com.travelplatform.domain.enums.ReportReason;
+import com.travelplatform.domain.model.reel.ReelReport;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -37,7 +37,7 @@ public class ReelReportEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private ApprovalStatus status = ApprovalStatus.PENDING;
+    private ReelReport.ReportStatus status = ReelReport.ReportStatus.PENDING;
 
     @Column(name = "reviewed_by")
     private UUID reviewedBy;
@@ -62,7 +62,7 @@ public class ReelReportEntity {
         this.reportedBy = reportedBy;
         this.reason = reason;
         this.description = description;
-        this.status = ApprovalStatus.PENDING;
+        this.status = ReelReport.ReportStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -107,11 +107,11 @@ public class ReelReportEntity {
         this.description = description;
     }
 
-    public ApprovalStatus getStatus() {
+    public ReelReport.ReportStatus getStatus() {
         return status;
     }
 
-    public void setStatus(ApprovalStatus status) {
+    public void setStatus(ReelReport.ReportStatus status) {
         this.status = status;
     }
 

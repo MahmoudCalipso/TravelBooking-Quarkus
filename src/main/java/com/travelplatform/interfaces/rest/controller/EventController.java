@@ -5,6 +5,7 @@ import com.travelplatform.application.dto.response.common.PageResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.dto.response.event.EventResponse;
 import com.travelplatform.application.service.event.EventService;
+import com.travelplatform.domain.enums.ApprovalStatus;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.annotation.security.PermitAll;
@@ -21,7 +22,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -62,10 +65,24 @@ public class EventController {
         try {
             log.info("Browse events request - type: {}, status: {}", type, status);
 
-            PageResponse<EventResponse> events = eventService.getEvents(type, status, page, pageSize);
+            List<EventResponse> events;
+            ApprovalStatus statusFilter = parseStatus(status);
+            if (statusFilter != null && type != null && !type.isBlank()) {
+                events = eventService.getEventsByStatus(statusFilter, page, pageSize).stream()
+                        .filter(event -> type.equalsIgnoreCase(event.getEventType()))
+                        .toList();
+            } else if (statusFilter != null) {
+                events = eventService.getEventsByStatus(statusFilter, page, pageSize);
+            } else if (type != null && !type.isBlank()) {
+                events = eventService.getEventsByType(type, page, pageSize);
+            } else {
+                events = eventService.getEventsByStatus(ApprovalStatus.APPROVED, page, pageSize);
+            }
+
+            PageResponse<EventResponse> response = buildPageResponse(events, page, pageSize);
 
             return Response.ok()
-                    .entity(events)
+                    .entity(response)
                     .build();
 
         } catch (Exception e) {
@@ -96,10 +113,11 @@ public class EventController {
         try {
             log.info("Get upcoming events request");
 
-            PageResponse<EventResponse> events = eventService.getUpcomingEvents(page, pageSize);
+            List<EventResponse> events = eventService.getUpcomingEvents(page, pageSize);
+            PageResponse<EventResponse> response = buildPageResponse(events, page, pageSize);
 
             return Response.ok()
-                    .entity(events)
+                    .entity(response)
                     .build();
 
         } catch (Exception e) {
@@ -184,15 +202,18 @@ public class EventController {
             @FormParam("startDate") LocalDateTime startDate,
             @FormParam("endDate") LocalDateTime endDate,
             @FormParam("pricePerPerson") Double pricePerPerson,
+            @FormParam("currency") String currency,
             @FormParam("maxParticipants") Integer maxParticipants) {
         try {
             String creatorId = securityContext.getUserPrincipal().getName();
             log.info("Create event request by user: {}", creatorId);
 
+            BigDecimal price = pricePerPerson != null ? BigDecimal.valueOf(pricePerPerson) : BigDecimal.ZERO;
+            String resolvedCurrency = (currency == null || currency.isBlank()) ? "USD" : currency;
             EventResponse event = eventService.createEvent(
                     UUID.fromString(creatorId), title, description, eventType,
                     locationName, latitude, longitude, startDate, endDate,
-                    pricePerPerson, maxParticipants);
+                    price, resolvedCurrency, maxParticipants);
 
             return Response.status(Response.Status.CREATED)
                     .entity(new SuccessResponse<>(event, "Event created successfully"))
@@ -257,10 +278,11 @@ public class EventController {
             String creatorId = securityContext.getUserPrincipal().getName();
             log.info("Update event request: {} by user: {}", eventId, creatorId);
 
+            BigDecimal price = pricePerPerson != null ? BigDecimal.valueOf(pricePerPerson) : null;
             EventResponse event = eventService.updateEvent(
-                    UUID.fromString(creatorId), eventId, title, description, eventType,
-                    locationName, latitude, longitude, startDate, endDate,
-                    pricePerPerson, maxParticipants);
+                    UUID.fromString(creatorId), eventId, title, description,
+                    locationName, startDate, endDate,
+                    price, maxParticipants);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(event, "Event updated successfully"))
@@ -431,7 +453,7 @@ public class EventController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Cancel event registration request: {} by user: {}", eventId, userId);
 
-            eventService.cancelEventRegistration(UUID.fromString(userId), eventId);
+            eventService.cancelRegistration(UUID.fromString(userId), eventId);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Registration cancelled successfully"))
@@ -511,11 +533,12 @@ public class EventController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get my registered events request for user: {}", userId);
 
-            PageResponse<EventResponse> events = eventService.getUserRegisteredEvents(
+            List<EventResponse> events = eventService.getUserRegisteredEvents(
                     UUID.fromString(userId), page, pageSize);
+            PageResponse<EventResponse> response = buildPageResponse(events, page, pageSize);
 
             return Response.ok()
-                    .entity(events)
+                    .entity(response)
                     .build();
 
         } catch (Exception e) {
@@ -541,11 +564,14 @@ public class EventController {
             @APIResponse(responseCode = "403", description = "Insufficient permissions"),
             @APIResponse(responseCode = "404", description = "Event not found")
     })
-    public Response approveEvent(@PathParam("eventId") UUID eventId) {
+    public Response approveEvent(
+            @Context SecurityContext securityContext,
+            @PathParam("eventId") UUID eventId) {
         try {
             log.info("Approve event request: {}", eventId);
 
-            eventService.approveEvent(eventId);
+            String adminId = securityContext.getUserPrincipal().getName();
+            eventService.approveEvent(UUID.fromString(adminId), eventId);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event approved successfully"))
@@ -581,12 +607,14 @@ public class EventController {
             @APIResponse(responseCode = "404", description = "Event not found")
     })
     public Response rejectEvent(
+            @Context SecurityContext securityContext,
             @PathParam("eventId") UUID eventId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject event request: {}", eventId);
 
-            eventService.rejectEvent(eventId, reason);
+            String adminId = securityContext.getUserPrincipal().getName();
+            eventService.rejectEvent(UUID.fromString(adminId), eventId);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event rejected successfully"))
@@ -603,5 +631,18 @@ public class EventController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private ApprovalStatus parseStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        return ApprovalStatus.valueOf(status.toUpperCase());
+    }
+
+    private PageResponse<EventResponse> buildPageResponse(List<EventResponse> data, int page, int pageSize) {
+        PageResponse.PaginationInfo pagination =
+                new PageResponse.PaginationInfo(page, pageSize, (long) data.size());
+        return new PageResponse<>(data, pagination);
     }
 }

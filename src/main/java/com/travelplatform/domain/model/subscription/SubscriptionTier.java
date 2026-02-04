@@ -2,6 +2,8 @@ package com.travelplatform.domain.model.subscription;
 
 import com.travelplatform.domain.valueobject.Money;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -12,17 +14,17 @@ import java.util.UUID;
  */
 public class SubscriptionTier {
     private final UUID id;
-    private final String name;
+    private String name;
     private final TierType tierType;
-    private final Money monthlyPrice;
-    private final Money yearlyPrice;
-    private final int priorityLevel;
-    private final int maxAccommodations;
-    private final boolean includesAnalytics;
-    private final boolean includesApiAccess;
-    private final boolean includesFeaturedBadge;
-    private final String features;
-    private final boolean isActive;
+    private Money monthlyPrice;
+    private Money yearlyPrice;
+    private int priorityLevel;
+    private int maxAccommodations;
+    private boolean includesAnalytics;
+    private boolean includesApiAccess;
+    private boolean includesFeaturedBadge;
+    private String features;
+    private boolean isActive;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -272,10 +274,13 @@ public class SubscriptionTier {
      */
     public double getYearlyDiscountPercentage() {
         Money yearlyMonthly = monthlyPrice.multiply(12);
-        if (yearlyMonthly.getAmount() <= 0) {
+        if (yearlyMonthly.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             return 0.0;
         }
-        return (yearlyMonthly.subtract(yearlyPrice).getAmount() / yearlyMonthly.getAmount()) * 100.0;
+        BigDecimal savings = yearlyMonthly.getAmount().subtract(yearlyPrice.getAmount());
+        return savings.divide(yearlyMonthly.getAmount(), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
     }
 
     @Override

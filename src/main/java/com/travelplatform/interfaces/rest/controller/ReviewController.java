@@ -23,6 +23,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -141,12 +142,13 @@ public class ReviewController {
         try {
             log.info("Get accommodation reviews request for accommodation: {}", accommodationId);
 
-            PageResponse<ReviewResponse> reviews = reviewService.getReviewsByAccommodation(
-                    accommodationId, rating, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReviewResponse> reviews = reviewService.getReviewsByAccommodation(
+                    accommodationId, rating, pageIndex, pageSize);
+            PageResponse<ReviewResponse> response =
+                    toPageResponse(reviews, page, pageSize, reviews.size());
 
-            return Response.ok()
-                    .entity(reviews)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting accommodation reviews", e);
@@ -179,11 +181,12 @@ public class ReviewController {
         try {
             log.info("Get user reviews request for user: {}", userId);
 
-            PageResponse<ReviewResponse> reviews = reviewService.getReviewsByReviewer(userId, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReviewResponse> reviews = reviewService.getReviewsByReviewer(userId, pageIndex, pageSize);
+            PageResponse<ReviewResponse> response =
+                    toPageResponse(reviews, page, pageSize, reviews.size());
 
-            return Response.ok()
-                    .entity(reviews)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting user reviews", e);
@@ -220,7 +223,13 @@ public class ReviewController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Update review request: {} by user: {}", reviewId, userId);
 
-            ReviewResponse review = reviewService.updateReview(UUID.fromString(userId), reviewId, request);
+            ReviewResponse review = reviewService.updateReview(
+                    UUID.fromString(userId),
+                    reviewId,
+                    request.getContent(),
+                    request.getTitle(),
+                    request.getPros(),
+                    request.getCons());
 
             return Response.ok()
                     .entity(new SuccessResponse<>(review, "Review updated successfully"))
@@ -381,11 +390,14 @@ public class ReviewController {
             @APIResponse(responseCode = "403", description = "Insufficient permissions"),
             @APIResponse(responseCode = "404", description = "Review not found")
     })
-    public Response approveReview(@PathParam("reviewId") UUID reviewId) {
+    public Response approveReview(
+            @Context SecurityContext securityContext,
+            @PathParam("reviewId") UUID reviewId) {
         try {
             log.info("Approve review request: {}", reviewId);
 
-            reviewService.approveReview(reviewId);
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            reviewService.approveReview(adminId, reviewId);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review approved successfully"))
@@ -421,12 +433,14 @@ public class ReviewController {
             @APIResponse(responseCode = "404", description = "Review not found")
     })
     public Response rejectReview(
+            @Context SecurityContext securityContext,
             @PathParam("reviewId") UUID reviewId,
             @FormParam("reason") String reason) {
         try {
             log.info("Reject review request: {}", reviewId);
 
-            reviewService.rejectReview(reviewId, reason);
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            reviewService.rejectReview(adminId, reviewId);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review rejected successfully"))
@@ -443,5 +457,19 @@ public class ReviewController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private int toPageIndex(int page) {
+        return Math.max(page - 1, 0);
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> data, int page, int pageSize, long totalItems) {
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        PageResponse.PaginationInfo pagination = new PageResponse.PaginationInfo(
+                safePage,
+                safePageSize,
+                totalItems);
+        return new PageResponse<>(data, pagination);
     }
 }

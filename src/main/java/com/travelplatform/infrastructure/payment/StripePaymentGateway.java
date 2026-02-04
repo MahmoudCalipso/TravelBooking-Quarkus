@@ -3,6 +3,7 @@ package com.travelplatform.infrastructure.payment;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.*;
+import com.stripe.net.Webhook;
 import com.stripe.param.*;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -12,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
+import static com.travelplatform.infrastructure.payment.PaymentException.*;
 /**
  * Stripe implementation of the PaymentGateway interface.
  * This class handles all payment operations using the Stripe API.
@@ -53,7 +55,7 @@ public class StripePaymentGateway implements PaymentGateway {
                     .setAmount(amountInCents)
                     .setCurrency(currency.toLowerCase())
                     .setDescription(description)
-                    .setMetadata(Map.of(
+                    .putAllMetadata(Map.of(
                             "booking_id", bookingId.toString(),
                             "payment_method", paymentMethod
                     ))
@@ -360,7 +362,7 @@ public class StripePaymentGateway implements PaymentGateway {
         try {
             SetupIntentCreateParams params = SetupIntentCreateParams.builder()
                     .setCustomer(customerId)
-                    .setPaymentMethodTypes(List.of(paymentMethodType.toLowerCase()))
+                    .addPaymentMethodType(paymentMethodType.toLowerCase())
                     .build();
 
             com.stripe.model.SetupIntent stripeSetupIntent = com.stripe.model.SetupIntent.create(params);
@@ -398,7 +400,7 @@ public class StripePaymentGateway implements PaymentGateway {
         try {
             initializeStripe();
 
-            Event event = Event.constructEvent(payload);
+            Event event = Event.GSON.fromJson(payload, Event.class);
 
             WebhookEvent webhookEvent = new WebhookEvent();
             webhookEvent.setId(event.getId());

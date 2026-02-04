@@ -636,7 +636,8 @@ public class SecurityConfig {
         QuarkusSecurityIdentity.Builder builder = QuarkusSecurityIdentity.builder();
         
         builder.setPrincipal(() -> userId);
-        builder.addCredential(new org.eclipse.microprofile.jwt.JsonWebToken() {
+        builder.addRole(role.name());
+        builder.addAttribute("jwt", new org.eclipse.microprofile.jwt.JsonWebToken() {
             @Override
             public String getName() {
                 return userId;
@@ -664,11 +665,6 @@ public class SecurityConfig {
             @Override
             public java.util.Set<String> getGroups() {
                 return java.util.Set.of(role.name());
-            }
-
-            @Override
-            public boolean isUserInRole(String role) {
-                return role.equals(this.getClaim("role"));
             }
         });
         

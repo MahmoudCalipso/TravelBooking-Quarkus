@@ -1,11 +1,13 @@
 package com.travelplatform.domain.service;
 
 import com.travelplatform.domain.model.accommodation.Accommodation;
+import com.travelplatform.domain.enums.AccommodationType;
 import com.travelplatform.domain.model.reel.TravelReel;
 import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.model.user.UserPreferences;
 import com.travelplatform.domain.valueobject.Location;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -368,8 +370,10 @@ public class RecommendationService {
         }
 
         // Price similarity (0-30 points)
-        double priceDiff = Math.abs(accommodation1.getBasePrice().getAmount() -
-                accommodation2.getBasePrice().getAmount());
+        double priceDiff = accommodation1.getBasePrice().getAmount()
+                .subtract(accommodation2.getBasePrice().getAmount())
+                .abs()
+                .doubleValue();
         double priceScore = Math.max(0, 30 - priceDiff * 0.1);
         score += priceScore;
 
@@ -407,8 +411,10 @@ public class RecommendationService {
             }
 
             // Price similarity
-            double priceDiff = Math.abs(accommodation.getBasePrice().getAmount() -
-                    booked.getBasePrice().getAmount());
+            double priceDiff = accommodation.getBasePrice().getAmount()
+                    .subtract(booked.getBasePrice().getAmount())
+                    .abs()
+                    .doubleValue();
             score += Math.max(0, 10 - priceDiff * 0.05);
 
             // Location proximity
@@ -428,20 +434,24 @@ public class RecommendationService {
      * @param budgetRange user's budget range
      * @return calculated score
      */
-    private double calculateBudgetScore(double price, String budgetRange) {
+    private double calculateBudgetScore(BigDecimal price, UserPreferences.BudgetRange budgetRange) {
+        if (price == null || budgetRange == null) {
+            return 0;
+        }
+        double priceValue = price.doubleValue();
         // Simple budget matching logic
-        switch (budgetRange.toUpperCase()) {
-            case "BUDGET":
-                if (price <= 50) return 20;
-                if (price <= 100) return 10;
+        switch (budgetRange) {
+            case BUDGET:
+                if (priceValue <= 50) return 20;
+                if (priceValue <= 100) return 10;
                 return 0;
-            case "MODERATE":
-                if (price >= 50 && price <= 150) return 20;
-                if (price >= 30 && price <= 200) return 10;
+            case MODERATE:
+                if (priceValue >= 50 && priceValue <= 150) return 20;
+                if (priceValue >= 30 && priceValue <= 200) return 10;
                 return 0;
-            case "LUXURY":
-                if (price >= 150) return 20;
-                if (price >= 100) return 10;
+            case LUXURY:
+                if (priceValue >= 150) return 20;
+                if (priceValue >= 100) return 10;
                 return 0;
             default:
                 return 0;
@@ -455,26 +465,34 @@ public class RecommendationService {
      * @param travelStyle      user's travel style
      * @return calculated score
      */
-    private double calculateTravelStyleScore(String accommodationType, String travelStyle) {
+    private double calculateTravelStyleScore(AccommodationType accommodationType,
+                                             UserPreferences.TravelStyle travelStyle) {
+        if (accommodationType == null || travelStyle == null) {
+            return 0;
+        }
         // Simple travel style matching logic
-        switch (travelStyle.toUpperCase()) {
-            case "ADVENTURE":
-                if (accommodationType.equals("HOSTEL") || accommodationType.equals("APARTMENT")) {
+        switch (travelStyle) {
+            case ADVENTURE:
+                if (accommodationType == AccommodationType.HOSTEL
+                        || accommodationType == AccommodationType.APARTMENT) {
                     return 20;
                 }
                 return 10;
-            case "CULTURAL":
-                if (accommodationType.equals("HOTEL") || accommodationType.equals("VILLA")) {
+            case CULTURAL:
+                if (accommodationType == AccommodationType.HOTEL
+                        || accommodationType == AccommodationType.VILLA) {
                     return 20;
                 }
                 return 10;
-            case "RELAXATION":
-                if (accommodationType.equals("RESORT") || accommodationType.equals("VILLA")) {
+            case RELAXATION:
+                if (accommodationType == AccommodationType.RESORT
+                        || accommodationType == AccommodationType.VILLA) {
                     return 20;
                 }
                 return 10;
-            case "BUSINESS":
-                if (accommodationType.equals("HOTEL") || accommodationType.equals("APARTMENT")) {
+            case BUSINESS:
+                if (accommodationType == AccommodationType.HOTEL
+                        || accommodationType == AccommodationType.APARTMENT) {
                     return 20;
                 }
                 return 10;

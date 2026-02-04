@@ -2,7 +2,6 @@ package com.travelplatform.domain.valueobject;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Currency;
 import java.util.Objects;
 
 /**
@@ -11,7 +10,7 @@ import java.util.Objects;
  */
 public class Money {
     private final BigDecimal amount;
-    private final Currency currency;
+    private final String currencyCode;
 
     /**
      * Creates a new Money value with the specified amount and currency.
@@ -30,31 +29,13 @@ public class Money {
         if (currency == null || currency.trim().isEmpty()) {
             throw new IllegalArgumentException("Currency cannot be null or empty");
         }
-
-        this.amount = amount.setScale(2, RoundingMode.HALF_UP);
-        this.currency = Currency.getInstance(currency);
-    }
-
-    /**
-     * Creates a new Money value with the specified amount and currency.
-     *
-     * @param amount   the monetary amount (must be non-negative)
-     * @param currency the Currency object
-     * @throws IllegalArgumentException if amount is negative or currency is null
-     */
-    public Money(BigDecimal amount, Currency currency) {
-        if (amount == null) {
-            throw new IllegalArgumentException("Amount cannot be null");
-        }
-        if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Amount cannot be negative");
-        }
-        if (currency == null) {
-            throw new IllegalArgumentException("Currency cannot be null");
+        String normalized = currency.trim().toUpperCase();
+        if (!normalized.matches("^[A-Z]{3}$")) {
+            throw new IllegalArgumentException("Currency code must be a 3-letter ISO code");
         }
 
         this.amount = amount.setScale(2, RoundingMode.HALF_UP);
-        this.currency = currency;
+        this.currencyCode = normalized;
     }
 
     /**
@@ -72,24 +53,16 @@ public class Money {
         this(BigDecimal.valueOf(amount), currency);
     }
 
-    public Money(double amount, Currency currency) {
-        this(BigDecimal.valueOf(amount), currency);
-    }
-
-    public Money(int amount, Currency currency) {
-        this(BigDecimal.valueOf(amount), currency);
-    }
-
     public BigDecimal getAmount() {
         return amount;
     }
 
-    public Currency getCurrency() {
-        return currency;
+    public String getCurrency() {
+        return currencyCode;
     }
 
     public String getCurrencyCode() {
-        return currency.getCurrencyCode();
+        return currencyCode;
     }
 
     /**
@@ -104,10 +77,10 @@ public class Money {
         if (other == null) {
             throw new IllegalArgumentException("Other money cannot be null");
         }
-        if (!this.currency.equals(other.currency)) {
+        if (!this.currencyCode.equals(other.currencyCode)) {
             throw new IllegalArgumentException("Cannot add money with different currencies");
         }
-        return new Money(this.amount.add(other.amount), this.currency);
+        return new Money(this.amount.add(other.amount), this.currencyCode);
     }
 
     /**
@@ -123,14 +96,14 @@ public class Money {
         if (other == null) {
             throw new IllegalArgumentException("Other money cannot be null");
         }
-        if (!this.currency.equals(other.currency)) {
+        if (!this.currencyCode.equals(other.currencyCode)) {
             throw new IllegalArgumentException("Cannot subtract money with different currencies");
         }
         BigDecimal result = this.amount.subtract(other.amount);
         if (result.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Result cannot be negative");
         }
-        return new Money(result, this.currency);
+        return new Money(result, this.currencyCode);
     }
 
     /**
@@ -145,7 +118,7 @@ public class Money {
             throw new IllegalArgumentException("Factor cannot be negative");
         }
         BigDecimal result = this.amount.multiply(BigDecimal.valueOf(factor)).setScale(2, RoundingMode.HALF_UP);
-        return new Money(result, this.currency);
+        return new Money(result, this.currencyCode);
     }
 
     /**
@@ -159,7 +132,7 @@ public class Money {
         if (factor == null || factor.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Factor cannot be null or negative");
         }
-        return new Money(this.amount.multiply(factor), this.currency);
+        return new Money(this.amount.multiply(factor), this.currencyCode);
     }
 
     /**
@@ -173,7 +146,7 @@ public class Money {
         if (divisor <= 0) {
             throw new IllegalArgumentException("Divisor must be positive");
         }
-        return new Money(this.amount.divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP), this.currency);
+        return new Money(this.amount.divide(BigDecimal.valueOf(divisor), 2, RoundingMode.HALF_UP), this.currencyCode);
     }
 
     /**
@@ -196,7 +169,7 @@ public class Money {
         if (other == null) {
             throw new IllegalArgumentException("Other money cannot be null");
         }
-        if (!this.currency.equals(other.currency)) {
+        if (!this.currencyCode.equals(other.currencyCode)) {
             throw new IllegalArgumentException("Cannot compare money with different currencies");
         }
         return this.amount.compareTo(other.amount) > 0;
@@ -212,7 +185,7 @@ public class Money {
         if (other == null) {
             throw new IllegalArgumentException("Other money cannot be null");
         }
-        if (!this.currency.equals(other.currency)) {
+        if (!this.currencyCode.equals(other.currencyCode)) {
             throw new IllegalArgumentException("Cannot compare money with different currencies");
         }
         return this.amount.compareTo(other.amount) < 0;
@@ -234,16 +207,16 @@ public class Money {
         if (o == null || getClass() != o.getClass())
             return false;
         Money money = (Money) o;
-        return amount.compareTo(money.amount) == 0 && currency.equals(money.currency);
+        return amount.compareTo(money.amount) == 0 && currencyCode.equals(money.currencyCode);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(amount, currency);
+        return Objects.hash(amount, currencyCode);
     }
 
     @Override
     public String toString() {
-        return String.format("%s %.2f", currency.getCurrencyCode(), amount);
+        return String.format("%s %.2f", currencyCode, amount);
     }
 }

@@ -1,6 +1,6 @@
 package com.travelplatform.infrastructure.persistence.entity;
 
-import com.travelplatform.domain.enums.ApprovalStatus;
+import com.travelplatform.domain.model.reel.ReelComment;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -36,7 +36,7 @@ public class ReelCommentEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private ApprovalStatus status = ApprovalStatus.VISIBLE;
+    private ReelComment.CommentStatus status = ReelComment.CommentStatus.VISIBLE;
 
     @Column(name = "like_count")
     private Integer likeCount = 0;
@@ -57,7 +57,7 @@ public class ReelCommentEntity {
         this.reelId = reelId;
         this.userId = userId;
         this.content = content;
-        this.status = ApprovalStatus.VISIBLE;
+        this.status = ReelComment.CommentStatus.VISIBLE;
         this.likeCount = 0;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -70,7 +70,7 @@ public class ReelCommentEntity {
         this.userId = userId;
         this.parentCommentId = parentCommentId;
         this.content = content;
-        this.status = ApprovalStatus.VISIBLE;
+        this.status = ReelComment.CommentStatus.VISIBLE;
         this.likeCount = 0;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
@@ -123,11 +123,11 @@ public class ReelCommentEntity {
         this.content = content;
     }
 
-    public ApprovalStatus getStatus() {
+    public ReelComment.CommentStatus getStatus() {
         return status;
     }
 
-    public void setStatus(ApprovalStatus status) {
+    public void setStatus(ReelComment.CommentStatus status) {
         this.status = status;
     }
 

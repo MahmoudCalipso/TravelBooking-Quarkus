@@ -4,10 +4,8 @@ import com.travelplatform.domain.enums.AccommodationType;
 import com.travelplatform.domain.enums.ApprovalStatus;
 import com.travelplatform.domain.model.accommodation.Accommodation;
 import com.travelplatform.domain.repository.AccommodationRepository;
-import com.travelplatform.domain.valueobject.DateRange;
 import com.travelplatform.domain.valueobject.Location;
 import com.travelplatform.infrastructure.persistence.entity.AccommodationEntity;
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -27,7 +25,7 @@ import java.util.stream.Collectors;
  * using JPA/Hibernate for data persistence.
  */
 @ApplicationScoped
-public class JpaAccommodationRepository implements AccommodationRepository, PanacheRepository<AccommodationEntity> {
+public class JpaAccommodationRepository implements AccommodationRepository {
 
         @Inject
         EntityManager entityManager;
@@ -42,6 +40,23 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                         entity = entityManager.merge(entity);
                 }
                 return toDomain(entity);
+        }
+
+        @Override
+        @Transactional
+        public Accommodation update(Accommodation accommodation) {
+                AccommodationEntity entity = toEntity(accommodation);
+                entity = entityManager.merge(entity);
+                return toDomain(entity);
+        }
+
+        @Override
+        public List<Accommodation> findAll() {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a", AccommodationEntity.class);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
         }
 
         @Override
@@ -93,7 +108,7 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 .collect(Collectors.toList());
         }
 
-        @Override
+        
         public List<Accommodation> findByCountry(String country) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE LOWER(a.country) = LOWER(:country)",
@@ -117,18 +132,18 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
         }
 
         @Override
-        public List<Accommodation> findByPriceRange(BigDecimal minPrice, BigDecimal maxPrice) {
+        public List<Accommodation> findByPriceRange(double minPrice, double maxPrice) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE a.basePrice BETWEEN :minPrice AND :maxPrice",
                                 AccommodationEntity.class);
-                query.setParameter("minPrice", minPrice);
-                query.setParameter("maxPrice", maxPrice);
+                query.setParameter("minPrice", BigDecimal.valueOf(minPrice));
+                query.setParameter("maxPrice", BigDecimal.valueOf(maxPrice));
                 return query.getResultList().stream()
                                 .map(this::toDomain)
                                 .collect(Collectors.toList());
         }
 
-        @Override
+        
         public List<Accommodation> findByMaxGuests(int maxGuests) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE a.maxGuests >= :maxGuests",
@@ -139,7 +154,7 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 .collect(Collectors.toList());
         }
 
-        @Override
+        
         public List<Accommodation> findPremiumAccommodations() {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE a.isPremium = true AND a.status = :status",
@@ -235,8 +250,13 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                         jpql += " ORDER BY a.createdAt DESC";
                 }
 
-                io.quarkus.hibernate.orm.panache.PanacheQuery<AccommodationEntity> query = find(jpql, params);
-                return query.page(page, pageSize).list().stream()
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(jpql, AccommodationEntity.class);
+                for (java.util.Map.Entry<String, Object> entry : params.entrySet()) {
+                        query.setParameter(entry.getKey(), entry.getValue());
+                }
+                query.setFirstResult(page * pageSize);
+                query.setMaxResults(pageSize);
+                return query.getResultList().stream()
                                 .map(this::toDomain)
                                 .collect(java.util.stream.Collectors.toList());
         }
@@ -268,7 +288,166 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
         }
 
         @Override
-        public List<Accommodation> search(String searchTerm) {
+        public List<Accommodation> findByStatusPaginated(ApprovalStatus status, int page, int pageSize) {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a WHERE a.status = :status",
+                                AccommodationEntity.class);
+                query.setParameter("status", status);
+                query.setFirstResult(page * pageSize);
+                query.setMaxResults(pageSize);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<Accommodation> findPremium() {
+                return findPremiumAccommodations();
+        }
+
+        @Override
+        public List<Accommodation> findByAmenities(List<String> amenityNames) {
+                if (amenityNames == null || amenityNames.isEmpty()) {
+                        return List.of();
+                }
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT DISTINCT a FROM AccommodationEntity a " +
+                                                "JOIN AccommodationAmenityEntity am ON am.accommodationId = a.id " +
+                                                "WHERE am.amenityName IN :amenities",
+                                AccommodationEntity.class);
+                query.setParameter("amenities", amenityNames);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<com.travelplatform.domain.model.accommodation.AccommodationImage> findImagesByAccommodationId(
+                        UUID accommodationId) {
+                TypedQuery<com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity> query = entityManager
+                                .createQuery(
+                                                "SELECT i FROM AccommodationImageEntity i WHERE i.accommodationId = :accommodationId ORDER BY i.displayOrder",
+                                                com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity.class);
+                query.setParameter("accommodationId", accommodationId);
+                return query.getResultList().stream()
+                                .map(entity -> new com.travelplatform.domain.model.accommodation.AccommodationImage(
+                                                entity.getId(),
+                                                entity.getAccommodationId(),
+                                                entity.getImageUrl(),
+                                                entity.getDisplayOrder() != null ? entity.getDisplayOrder() : 0,
+                                                entity.isPrimary(),
+                                                entity.getCaption(),
+                                                entity.getCreatedAt()))
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<com.travelplatform.domain.model.accommodation.AccommodationAmenity> findAmenitiesByAccommodationId(
+                        UUID accommodationId) {
+                TypedQuery<com.travelplatform.infrastructure.persistence.entity.AccommodationAmenityEntity> query = entityManager
+                                .createQuery(
+                                                "SELECT a FROM AccommodationAmenityEntity a WHERE a.accommodationId = :accommodationId",
+                                                com.travelplatform.infrastructure.persistence.entity.AccommodationAmenityEntity.class);
+                query.setParameter("accommodationId", accommodationId);
+                return query.getResultList().stream()
+                                .map(entity -> new com.travelplatform.domain.model.accommodation.AccommodationAmenity(
+                                                entity.getId(),
+                                                entity.getAccommodationId(),
+                                                entity.getAmenityName(),
+                                                entity.getCategory()))
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public Optional<com.travelplatform.domain.model.accommodation.AccommodationImage> findPrimaryImageByAccommodationId(
+                        UUID accommodationId) {
+                TypedQuery<com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity> query = entityManager
+                                .createQuery(
+                                                "SELECT i FROM AccommodationImageEntity i WHERE i.accommodationId = :accommodationId AND i.isPrimary = true",
+                                                com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity.class);
+                query.setParameter("accommodationId", accommodationId);
+                List<com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity> results = query
+                                .getResultList();
+                if (results.isEmpty()) {
+                        return Optional.empty();
+                }
+                com.travelplatform.infrastructure.persistence.entity.AccommodationImageEntity entity = results.get(0);
+                return Optional.of(new com.travelplatform.domain.model.accommodation.AccommodationImage(
+                                entity.getId(),
+                                entity.getAccommodationId(),
+                                entity.getImageUrl(),
+                                entity.getDisplayOrder() != null ? entity.getDisplayOrder() : 0,
+                                entity.isPrimary(),
+                                entity.getCaption(),
+                                entity.getCreatedAt()));
+        }
+
+        @Override
+        public List<Accommodation> findByMinAverageRating(double minRating) {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a WHERE a.averageRating >= :minRating",
+                                AccommodationEntity.class);
+                query.setParameter("minRating", BigDecimal.valueOf(minRating));
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<Accommodation> findMostBooked(int limit) {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a WHERE a.status = :status " +
+                                                "ORDER BY a.bookingCount DESC, a.viewCount DESC",
+                                AccommodationEntity.class);
+                query.setParameter("status", ApprovalStatus.APPROVED);
+                query.setMaxResults(limit);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<Accommodation> findMostViewed(int limit) {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a WHERE a.status = :status " +
+                                                "ORDER BY a.viewCount DESC",
+                                AccommodationEntity.class);
+                query.setParameter("status", ApprovalStatus.APPROVED);
+                query.setMaxResults(limit);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public long countAll() {
+                return count();
+        }
+
+        @Override
+        public long countByIsPremium(boolean isPremium) {
+                TypedQuery<Long> query = entityManager.createQuery(
+                                "SELECT COUNT(a) FROM AccommodationEntity a WHERE a.isPremium = :isPremium",
+                                Long.class);
+                query.setParameter("isPremium", isPremium);
+                return query.getSingleResult();
+        }
+
+        @Override
+        public List<Accommodation> findBySupplierIdPaginated(UUID supplierId, int page, int pageSize) {
+                TypedQuery<AccommodationEntity> query = entityManager.createQuery(
+                                "SELECT a FROM AccommodationEntity a WHERE a.supplierId = :supplierId",
+                                AccommodationEntity.class);
+                query.setParameter("supplierId", supplierId);
+                query.setFirstResult(page * pageSize);
+                query.setMaxResults(pageSize);
+                return query.getResultList().stream()
+                                .map(this::toDomain)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        public List<Accommodation> searchByKeyword(String searchTerm) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE " +
                                                 "LOWER(a.title) LIKE LOWER(:search) OR " +
@@ -283,13 +462,10 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
         }
 
         @Override
-        public List<Accommodation> findAvailable(UUID accommodationId, DateRange dateRange) {
-                LocalDate checkIn = dateRange.getStartDate();
-                LocalDate checkOut = dateRange.getEndDate();
-
-                // Find accommodations that don't have overlapping confirmed bookings
+        public List<Accommodation> findAvailableForDates(LocalDate checkInDate, LocalDate checkOutDate) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
-                                "SELECT a FROM AccommodationEntity a WHERE a.id = :accommodationId AND " +
+                                "SELECT a FROM AccommodationEntity a WHERE " +
+                                                "a.status = :status AND " +
                                                 "NOT EXISTS (" +
                                                 "  SELECT b FROM BookingEntity b WHERE " +
                                                 "  b.accommodationId = a.id AND " +
@@ -298,19 +474,17 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                                 "  b.checkOutDate > :checkIn" +
                                                 ")",
                                 AccommodationEntity.class);
-                query.setParameter("accommodationId", accommodationId);
-                query.setParameter("checkIn", checkIn);
-                query.setParameter("checkOut", checkOut);
+                query.setParameter("status", ApprovalStatus.APPROVED);
+                query.setParameter("checkIn", checkInDate);
+                query.setParameter("checkOut", checkOutDate);
                 return query.getResultList().stream()
                                 .map(this::toDomain)
                                 .collect(Collectors.toList());
         }
 
         @Override
-        public List<Accommodation> findAvailableAccommodations(DateRange dateRange, int guests) {
-                LocalDate checkIn = dateRange.getStartDate();
-                LocalDate checkOut = dateRange.getEndDate();
-
+        public List<Accommodation> findAvailableForDatesAndGuests(LocalDate checkInDate, LocalDate checkOutDate,
+                        int guests) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE " +
                                                 "a.status = :status AND " +
@@ -325,8 +499,8 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 AccommodationEntity.class);
                 query.setParameter("status", ApprovalStatus.APPROVED);
                 query.setParameter("guests", guests);
-                query.setParameter("checkIn", checkIn);
-                query.setParameter("checkOut", checkOut);
+                query.setParameter("checkIn", checkInDate);
+                query.setParameter("checkOut", checkOutDate);
                 return query.getResultList().stream()
                                 .map(this::toDomain)
                                 .collect(Collectors.toList());
@@ -346,7 +520,6 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 .collect(Collectors.toList());
         }
 
-        @Override
         public List<Accommodation> findMostPopular(int limit) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE a.status = :status " +
@@ -359,7 +532,6 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 .collect(Collectors.toList());
         }
 
-        @Override
         public List<Accommodation> findRecentlyAdded(int limit) {
                 TypedQuery<AccommodationEntity> query = entityManager.createQuery(
                                 "SELECT a FROM AccommodationEntity a WHERE a.status = :status " +
@@ -372,7 +544,6 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 .collect(Collectors.toList());
         }
 
-        @Override
         @Transactional
         public void delete(Accommodation accommodation) {
                 AccommodationEntity entity = entityManager.find(AccommodationEntity.class, accommodation.getId());
@@ -390,7 +561,6 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                 }
         }
 
-        @Override
         public boolean existsById(UUID id) {
                 return entityManager.find(AccommodationEntity.class, id) != null;
         }
@@ -419,7 +589,6 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                 return query.getSingleResult();
         }
 
-        @Override
         public long countByType(AccommodationType type) {
                 TypedQuery<Long> query = entityManager.createQuery(
                                 "SELECT COUNT(a) FROM AccommodationEntity a WHERE a.type = :type", Long.class);
@@ -429,25 +598,43 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
 
         // Helper methods for Entity <-> Domain conversion
         private Accommodation toDomain(AccommodationEntity entity) {
+                com.travelplatform.domain.valueobject.Address address = new com.travelplatform.domain.valueobject.Address(
+                                entity.getAddress(),
+                                entity.getCity(),
+                                entity.getStateProvince(),
+                                entity.getCountry(),
+                                entity.getPostalCode());
+
+                Location location = null;
+                if (entity.getLatitude() != null && entity.getLongitude() != null) {
+                        location = new Location(entity.getLatitude().doubleValue(),
+                                        entity.getLongitude().doubleValue());
+                }
+
+                com.travelplatform.domain.valueobject.Money basePrice = new com.travelplatform.domain.valueobject.Money(
+                                entity.getBasePrice(),
+                                entity.getCurrency());
+
+                Double bathrooms = entity.getBathrooms() != null ? entity.getBathrooms().doubleValue() : null;
+                Double averageRating = entity.getAverageRating() != null ? entity.getAverageRating().doubleValue() : null;
+                int minimumNights = entity.getMinimumNights() != null ? entity.getMinimumNights() : 1;
+                long viewCount = entity.getViewCount() != null ? entity.getViewCount() : 0L;
+                int bookingCount = entity.getBookingCount() != null ? entity.getBookingCount() : 0;
+                int reviewCount = entity.getReviewCount() != null ? entity.getReviewCount() : 0;
+
                 return new Accommodation(
                                 entity.getId(),
                                 entity.getSupplierId(),
                                 entity.getType(),
                                 entity.getTitle(),
                                 entity.getDescription(),
-                                entity.getAddress(),
-                                entity.getCity(),
-                                entity.getStateProvince(),
-                                entity.getCountry(),
-                                entity.getPostalCode(),
-                                entity.getLatitude() != null ? new Location(entity.getLatitude(), entity.getLongitude())
-                                                : null,
-                                entity.getBasePrice(),
-                                entity.getCurrency(),
+                                address,
+                                location,
+                                basePrice,
                                 entity.getMaxGuests(),
                                 entity.getBedrooms(),
                                 entity.getBeds(),
-                                entity.getBathrooms(),
+                                bathrooms,
                                 entity.getSquareMeters(),
                                 entity.getStatus(),
                                 entity.getVisibilityStart(),
@@ -456,13 +643,13 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                                 entity.isInstantBook(),
                                 entity.getCheckInTime(),
                                 entity.getCheckOutTime(),
-                                entity.getMinimumNights(),
+                                minimumNights,
                                 entity.getMaximumNights(),
                                 entity.getCancellationPolicy(),
-                                entity.getViewCount(),
-                                entity.getBookingCount(),
-                                entity.getAverageRating(),
-                                entity.getReviewCount(),
+                                viewCount,
+                                bookingCount,
+                                averageRating,
+                                reviewCount,
                                 entity.getCreatedAt(),
                                 entity.getUpdatedAt(),
                                 entity.getApprovedAt(),
@@ -476,21 +663,35 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                 entity.setType(domain.getType());
                 entity.setTitle(domain.getTitle());
                 entity.setDescription(domain.getDescription());
-                entity.setAddress(domain.getAddress());
-                entity.setCity(domain.getCity());
-                entity.setStateProvince(domain.getStateProvince());
-                entity.setCountry(domain.getCountry());
-                entity.setPostalCode(domain.getPostalCode());
-                if (domain.getLocation() != null) {
-                        entity.setLatitude(domain.getLocation().getLatitude());
-                        entity.setLongitude(domain.getLocation().getLongitude());
+                if (domain.getAddress() != null) {
+                        entity.setAddress(domain.getAddress().getStreetAddress());
+                        entity.setCity(domain.getAddress().getCity());
+                        entity.setStateProvince(domain.getAddress().getStateProvince());
+                        entity.setCountry(domain.getAddress().getCountry());
+                        entity.setPostalCode(domain.getAddress().getPostalCode());
+                } else {
+                        entity.setAddress(null);
+                        entity.setCity(domain.getCity());
+                        entity.setStateProvince(domain.getStateProvince());
+                        entity.setCountry(domain.getCountry());
+                        entity.setPostalCode(domain.getPostalCode());
                 }
-                entity.setBasePrice(domain.getBasePrice());
-                entity.setCurrency(domain.getCurrency());
+                if (domain.getLocation() != null) {
+                        entity.setLatitude(BigDecimal.valueOf(domain.getLocation().getLatitude()));
+                        entity.setLongitude(BigDecimal.valueOf(domain.getLocation().getLongitude()));
+                }
+                if (domain.getBasePrice() != null) {
+                        entity.setBasePrice(domain.getBasePrice().getAmount());
+                        entity.setCurrency(domain.getBasePrice().getCurrencyCode());
+                }
                 entity.setMaxGuests(domain.getMaxGuests());
                 entity.setBedrooms(domain.getBedrooms());
                 entity.setBeds(domain.getBeds());
-                entity.setBathrooms(domain.getBathrooms());
+                if (domain.getBathrooms() != null) {
+                        entity.setBathrooms(BigDecimal.valueOf(domain.getBathrooms()));
+                } else {
+                        entity.setBathrooms(null);
+                }
                 entity.setSquareMeters(domain.getSquareMeters());
                 entity.setStatus(domain.getStatus());
                 entity.setVisibilityStart(domain.getVisibilityStart());
@@ -504,7 +705,11 @@ public class JpaAccommodationRepository implements AccommodationRepository, Pana
                 entity.setCancellationPolicy(domain.getCancellationPolicy());
                 entity.setViewCount(domain.getViewCount());
                 entity.setBookingCount(domain.getBookingCount());
-                entity.setAverageRating(domain.getAverageRating());
+                if (domain.getAverageRating() != null) {
+                        entity.setAverageRating(BigDecimal.valueOf(domain.getAverageRating()));
+                } else {
+                        entity.setAverageRating(null);
+                }
                 entity.setReviewCount(domain.getReviewCount());
                 entity.setCreatedAt(domain.getCreatedAt());
                 entity.setUpdatedAt(domain.getUpdatedAt());

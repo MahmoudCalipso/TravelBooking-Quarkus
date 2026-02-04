@@ -1,7 +1,7 @@
 package com.travelplatform.application.dto.request.booking;
 
 import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
+
 import java.time.LocalDate;
 import java.util.UUID;
 

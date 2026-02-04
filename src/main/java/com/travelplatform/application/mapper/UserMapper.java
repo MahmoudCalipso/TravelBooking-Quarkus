@@ -153,10 +153,10 @@ public interface UserMapper {
             preferences.setPreferredDestinations(request.getPreferredDestinations());
         }
         if (request.getBudgetRange() != null) {
-            preferences.setBudgetRange(request.getBudgetRange());
+            preferences.setBudgetRange(UserPreferences.BudgetRange.valueOf(request.getBudgetRange().toUpperCase()));
         }
         if (request.getTravelStyle() != null) {
-            preferences.setTravelStyle(request.getTravelStyle());
+            preferences.setTravelStyle(UserPreferences.TravelStyle.valueOf(request.getTravelStyle().toUpperCase()));
         }
         if (request.getInterests() != null) {
             preferences.setInterests(request.getInterests());
@@ -170,5 +170,15 @@ public interface UserMapper {
         if (request.getSmsNotifications() != null) {
             preferences.setSmsNotifications(request.getSmsNotifications());
         }
+    }
+
+    // Aliases expected by service layer
+    default void updateProfileFromRequest(UpdateProfileRequest request, @MappingTarget UserProfile profile) {
+        updateUserProfileFromRequest(request, profile);
+    }
+
+    default void updatePreferencesFromRequest(UpdatePreferencesRequest request,
+            @MappingTarget UserPreferences preferences) {
+        updateUserPreferencesFromRequest(request, preferences);
     }
 }

@@ -80,13 +80,15 @@ public class ReviewService {
             }
 
             // Check if review already exists for this booking
-            if (reviewRepository.existsByBookingId(request.getBookingId())) {
+            if (reviewRepository.findByBookingId(request.getBookingId()).isPresent()) {
                 throw new IllegalArgumentException("You have already reviewed this booking");
             }
         }
 
         // Check if user has already reviewed this accommodation
-        if (reviewRepository.existsByReviewerAndAccommodation(userId, request.getAccommodationId())) {
+        boolean alreadyReviewed = reviewRepository.findByReviewerId(userId).stream()
+                .anyMatch(existing -> existing.getAccommodationId().equals(request.getAccommodationId()));
+        if (alreadyReviewed) {
             throw new IllegalArgumentException("You have already reviewed this accommodation");
         }
 
@@ -128,7 +130,7 @@ public class ReviewService {
             review.setCons(request.getCons());
         }
         if (request.getTravelType() != null) {
-            review.setTravelType(request.getTravelType());
+            review.setTravelType(Review.TravelType.valueOf(request.getTravelType().toUpperCase()));
         }
         if (request.getStayedDate() != null) {
             review.setStayedDate(request.getStayedDate());
@@ -162,8 +164,23 @@ public class ReviewService {
      */
     @Transactional
     public List<ReviewResponse> getReviewsByAccommodation(UUID accommodationId, int page, int pageSize) {
-        List<Review> reviews = reviewRepository.findByAccommodationId(accommodationId, page, pageSize);
+        List<Review> reviews = reviewRepository.findByAccommodationIdPaginated(accommodationId, page, pageSize);
         return reviewMapper.toReviewResponseList(reviews);
+    }
+
+    /**
+     * Get reviews by accommodation with optional rating filter.
+     */
+    @Transactional
+    public List<ReviewResponse> getReviewsByAccommodation(UUID accommodationId, Integer rating, int page, int pageSize) {
+        if (rating == null) {
+            return getReviewsByAccommodation(accommodationId, page, pageSize);
+        }
+        List<Review> reviews = reviewRepository.findByAccommodationId(accommodationId);
+        List<Review> filtered = reviews.stream()
+                .filter(review -> review.getOverallRating() == rating)
+                .toList();
+        return reviewMapper.toReviewResponseList(paginate(filtered, page, pageSize));
     }
 
     /**
@@ -171,7 +188,7 @@ public class ReviewService {
      */
     @Transactional
     public List<ReviewResponse> getReviewsByReviewer(UUID reviewerId, int page, int pageSize) {
-        List<Review> reviews = reviewRepository.findByReviewerId(reviewerId, page, pageSize);
+        List<Review> reviews = reviewRepository.findByReviewerIdPaginated(reviewerId, page, pageSize);
         return reviewMapper.toReviewResponseList(reviews);
     }
 
@@ -180,8 +197,8 @@ public class ReviewService {
      */
     @Transactional
     public List<ReviewResponse> getReviewsByRating(int rating, int page, int pageSize) {
-        List<Review> reviews = reviewRepository.findByOverallRating(rating, page, pageSize);
-        return reviewMapper.toReviewResponseList(reviews);
+        List<Review> reviews = reviewRepository.findByOverallRating(rating);
+        return reviewMapper.toReviewResponseList(paginate(reviews, page, pageSize));
     }
 
     /**
@@ -189,7 +206,7 @@ public class ReviewService {
      */
     @Transactional
     public List<ReviewResponse> getReviewsByStatus(ApprovalStatus status, int page, int pageSize) {
-        List<Review> reviews = reviewRepository.findByStatus(status, page, pageSize);
+        List<Review> reviews = reviewRepository.findByStatusPaginated(status, page, pageSize);
         return reviewMapper.toReviewResponseList(reviews);
     }
 
@@ -256,17 +273,12 @@ public class ReviewService {
                 .orElseThrow(() -> new IllegalArgumentException("Review not found"));
 
         // Check if user already marked this review
-        if (reviewRepository.existsHelpfulVote(userId, reviewId)) {
+        if (reviewRepository.findHelpfulByReviewIdAndUserId(reviewId, userId).isPresent()) {
             throw new IllegalArgumentException("You have already marked this review");
         }
 
         // Create helpful vote
-        ReviewHelpful helpful = new ReviewHelpful(
-            UUID.randomUUID(),
-            reviewId,
-            userId,
-            isHelpful
-        );
+        ReviewHelpful helpful = new ReviewHelpful(reviewId, userId, isHelpful);
 
         // Save helpful vote
         reviewRepository.saveHelpful(helpful);
@@ -299,7 +311,7 @@ public class ReviewService {
         reviewValidator.validateHostResponse(response);
 
         // Set response
-        review.setResponseFromHost(response);
+        review.addHostResponse(response);
         reviewRepository.save(review);
 
         return reviewMapper.toReviewResponse(review);
@@ -314,7 +326,7 @@ public class ReviewService {
                 .orElseThrow(() -> new IllegalArgumentException("Review not found"));
 
         // Approve review
-        review.approve(adminId);
+        review.approve();
         reviewRepository.save(review);
 
         return reviewMapper.toReviewResponse(review);
@@ -329,7 +341,7 @@ public class ReviewService {
                 .orElseThrow(() -> new IllegalArgumentException("Review not found"));
 
         // Reject review
-        review.reject(adminId);
+        review.reject();
         reviewRepository.save(review);
 
         return reviewMapper.toReviewResponse(review);
@@ -340,8 +352,7 @@ public class ReviewService {
      */
     private void updateAccommodationRating(UUID accommodationId) {
         List<Review> approvedReviews = reviewRepository.findByAccommodationIdAndStatus(
-            accommodationId, ApprovalStatus.APPROVED, 0, Integer.MAX_VALUE
-        );
+                accommodationId, ApprovalStatus.APPROVED);
 
         if (approvedReviews.isEmpty()) {
             return;
@@ -357,5 +368,19 @@ public class ReviewService {
 
         accommodation.updateAverageRating(averageRating);
         accommodationRepository.save(accommodation);
+    }
+
+    private List<Review> paginate(List<Review> reviews, int page, int pageSize) {
+        if (reviews == null || reviews.isEmpty()) {
+            return List.of();
+        }
+        int safePage = Math.max(page, 0);
+        int safePageSize = Math.max(pageSize, 1);
+        int fromIndex = safePage * safePageSize;
+        if (fromIndex >= reviews.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(reviews.size(), fromIndex + safePageSize);
+        return reviews.subList(fromIndex, toIndex);
     }
 }

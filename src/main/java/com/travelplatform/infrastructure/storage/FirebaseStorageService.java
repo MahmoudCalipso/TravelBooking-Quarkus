@@ -101,7 +101,7 @@ public class FirebaseStorageService implements StorageService {
                     .build();
 
             // Upload file
-            Blob blob = getStorage().createFrom(blobInfo, bytes);
+            Blob blob = getStorage().create(blobInfo, bytes);
 
             if (blob == null) {
                 throw new StorageException(StorageException.UPLOAD_FAILED, "Failed to upload file: " + fileName);
@@ -160,8 +160,8 @@ public class FirebaseStorageService implements StorageService {
                 throw new StorageException(StorageException.INVALID_URL, "Invalid file URL: " + fileUrl);
             }
 
-            BlobId blobId = BlobId.of(bucketName, objectName);
-            URL url = getStorage().signUrl(blobId, expirationInSeconds, TimeUnit.SECONDS);
+            BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, objectName).build();
+            URL url = getStorage().signUrl(blobInfo, expirationInSeconds, TimeUnit.SECONDS);
 
             return url.toString();
 

@@ -105,7 +105,7 @@ public class ReelService {
             reel.setTags(request.getTags());
         }
         if (request.getVisibility() != null) {
-            reel.setVisibility(request.getVisibility());
+            reel.setVisibility(visibility);
         }
 
         // Set promotional flag for suppliers
@@ -196,6 +196,43 @@ public class ReelService {
     }
 
     /**
+     * Get bookmarked reels for a user.
+     */
+    @Transactional
+    public List<ReelResponse> getBookmarkedReels(UUID userId, int page, int pageSize) {
+        List<ReelEngagement> engagements = reelRepository.findEngagementsByUserId(userId);
+        List<UUID> reelIds = engagements.stream()
+                .filter(ReelEngagement::isBookmark)
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .map(ReelEngagement::getReelId)
+                .toList();
+
+        List<UUID> pagedIds = paginate(reelIds, page, pageSize);
+        List<TravelReel> reels = pagedIds.stream()
+                .map(id -> reelRepository.findById(id).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        return reelMapper.toReelResponseList(reels);
+    }
+
+    /**
+     * Get comments for a reel.
+     */
+    @Transactional
+    public List<ReelComment> getComments(UUID reelId, int page, int pageSize) {
+        return reelRepository.findCommentsByReelIdPaginated(reelId, page, pageSize);
+    }
+
+    /**
+     * Get reports submitted by a user.
+     */
+    @Transactional
+    public List<ReelReport> getUserReports(UUID userId, int page, int pageSize) {
+        return reelRepository.findReportsByReporter(userId, page, pageSize);
+    }
+
+    /**
      * Update reel.
      */
     @Transactional
@@ -256,17 +293,16 @@ public class ReelService {
             // Update existing engagement with watch duration
             ReelEngagement engagement = reelRepository.findEngagement(userId, reelId, EngagementType.VIEW);
             if (engagement != null) {
-                engagement.setWatchDuration(watchDuration);
+                engagement.updateWatchDuration(watchDuration);
                 reelRepository.saveEngagement(engagement);
             }
         } else {
             // Create new view engagement
             ReelEngagement engagement = new ReelEngagement(
-                    UUID.randomUUID(),
                     reelId,
                     userId,
-                    EngagementType.VIEW);
-            engagement.setWatchDuration(watchDuration);
+                    EngagementType.VIEW,
+                    watchDuration);
             reelRepository.saveEngagement(engagement);
         }
 
@@ -290,10 +326,10 @@ public class ReelService {
 
         // Create like engagement
         ReelEngagement engagement = new ReelEngagement(
-                UUID.randomUUID(),
                 reelId,
                 userId,
-                EngagementType.LIKE);
+                EngagementType.LIKE,
+                null);
         reelRepository.saveEngagement(engagement);
 
         // Increment reel like count
@@ -330,10 +366,10 @@ public class ReelService {
 
         // Create share engagement
         ReelEngagement engagement = new ReelEngagement(
-                UUID.randomUUID(),
                 reelId,
                 userId,
-                EngagementType.SHARE);
+                EngagementType.SHARE,
+                null);
         reelRepository.saveEngagement(engagement);
 
         // Increment reel share count
@@ -356,10 +392,10 @@ public class ReelService {
 
         // Create bookmark engagement
         ReelEngagement engagement = new ReelEngagement(
-                UUID.randomUUID(),
                 reelId,
                 userId,
-                EngagementType.BOOKMARK);
+                EngagementType.BOOKMARK,
+                null);
         reelRepository.saveEngagement(engagement);
 
         // Increment reel bookmark count
@@ -398,17 +434,9 @@ public class ReelService {
         reelValidator.validateComment(content);
 
         // Create comment
-        ReelComment comment = new ReelComment(
-                UUID.randomUUID(),
-                reelId,
-                userId,
-                content);
+        ReelComment comment = new ReelComment(reelId, userId, parentCommentId, content);
 
         // Set parent comment if it's a reply
-        if (parentCommentId != null) {
-            comment.setParentCommentId(parentCommentId);
-        }
-
         // Save comment
         reelRepository.saveComment(comment);
 
@@ -452,15 +480,9 @@ public class ReelService {
         reelValidator.validateReport(reason, description);
 
         // Create report
-        ReelReport report = new ReelReport(
-                UUID.randomUUID(),
-                reelId,
-                userId,
-                reason);
-
-        if (description != null) {
-            report.setDescription(description);
-        }
+        com.travelplatform.domain.enums.ReportReason reportReason =
+                com.travelplatform.domain.enums.ReportReason.valueOf(reason);
+        ReelReport report = new ReelReport(reelId, userId, reportReason, description);
 
         // Save report
         reelRepository.saveReport(report);
@@ -516,5 +538,19 @@ public class ReelService {
         reelRepository.save(reel);
 
         return reelMapper.toReelResponse(reel);
+    }
+
+    private <T> List<T> paginate(List<T> items, int page, int pageSize) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        int safePage = Math.max(page, 0);
+        int safePageSize = Math.max(pageSize, 1);
+        int fromIndex = safePage * safePageSize;
+        if (fromIndex >= items.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(items.size(), fromIndex + safePageSize);
+        return items.subList(fromIndex, toIndex);
     }
 }

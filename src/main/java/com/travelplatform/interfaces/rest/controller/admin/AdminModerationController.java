@@ -3,16 +3,19 @@ package com.travelplatform.interfaces.rest.controller.admin;
 import com.travelplatform.application.dto.response.common.ErrorResponse;
 import com.travelplatform.application.dto.response.common.PageResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
-import com.travelplatform.application.dto.response.reel.ReelResponse;
 import com.travelplatform.application.dto.response.review.ReviewResponse;
 import com.travelplatform.application.dto.response.user.UserResponse;
 import com.travelplatform.application.service.admin.AdminModerationService;
+import com.travelplatform.domain.enums.UserStatus;
+import com.travelplatform.domain.model.reel.ReelReport;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
@@ -20,7 +23,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -62,13 +65,20 @@ public class AdminModerationController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get reported reels request");
-            
-            PageResponse<ReelResponse> reels = 
-                    adminModerationService.getReportedReels(status, page, pageSize);
-            
-            return Response.ok()
-                    .entity(reels)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<ReelReport> reports;
+            if (status != null && !status.isBlank()) {
+                ReelReport.ReportStatus reportStatus = ReelReport.ReportStatus.valueOf(status.toUpperCase());
+                reports = adminModerationService.getReelReportsByStatus(reportStatus, pageIndex, pageSize);
+            } else {
+                reports = adminModerationService.getReelReports(pageIndex, pageSize);
+            }
+
+            PageResponse<ReelReport> response =
+                    toPageResponse(reports, page, pageSize, reports.size());
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting reported reels", e);
@@ -101,13 +111,13 @@ public class AdminModerationController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get reported reviews request");
-            
-            PageResponse<ReviewResponse> reviews = 
-                    adminModerationService.getReportedReviews(status, page, pageSize);
-            
-            return Response.ok()
-                    .entity(reviews)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<ReviewResponse> reviews = adminModerationService.getFlaggedReviews(pageIndex, pageSize);
+            PageResponse<ReviewResponse> response =
+                    toPageResponse(reviews, page, pageSize, reviews.size());
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting reported reviews", e);
@@ -140,13 +150,18 @@ public class AdminModerationController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get reported users request");
-            
-            PageResponse<UserResponse> users = 
-                    adminModerationService.getReportedUsers(status, page, pageSize);
-            
-            return Response.ok()
-                    .entity(users)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            UserStatus resolvedStatus = UserStatus.SUSPENDED;
+            if (status != null && !status.isBlank()) {
+                resolvedStatus = UserStatus.valueOf(status.toUpperCase());
+            }
+            List<UserResponse> users =
+                    adminModerationService.getUsersByStatus(resolvedStatus, pageIndex, pageSize);
+            PageResponse<UserResponse> response =
+                    toPageResponse(users, page, pageSize, users.size());
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting reported users", e);
@@ -177,12 +192,13 @@ public class AdminModerationController {
             @QueryParam("pageSize") @DefaultValue("20") int pageSize) {
         try {
             log.info("Get all reports request");
-            
-            var reports = adminModerationService.getAllReports(page, pageSize);
-            
-            return Response.ok()
-                    .entity(reports)
-                    .build();
+
+            int pageIndex = toPageIndex(page);
+            List<ReelReport> reports = adminModerationService.getReelReports(pageIndex, pageSize);
+            PageResponse<ReelReport> response =
+                    toPageResponse(reports, page, pageSize, reports.size());
+
+            return Response.ok().entity(response).build();
                     
         } catch (Exception e) {
             log.error("Unexpected error getting all reports", e);
@@ -211,9 +227,9 @@ public class AdminModerationController {
     public Response getReportDetails(@PathParam("reportId") UUID reportId) {
         try {
             log.info("Get report details request: {}", reportId);
-            
-            var report = adminModerationService.getReportDetails(reportId);
-            
+
+            ReelReport report = adminModerationService.getReelReportDetails(reportId);
+
             return Response.ok()
                     .entity(new SuccessResponse<>(report, "Report details retrieved successfully"))
                     .build();
@@ -250,13 +266,16 @@ public class AdminModerationController {
         @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response reviewReport(
+            @Context SecurityContext securityContext,
             @PathParam("reportId") UUID reportId,
             @FormParam("action") String action,
             @FormParam("adminNotes") String adminNotes) {
         try {
             log.info("Review report request: {}", reportId);
-            
-            adminModerationService.reviewReport(reportId, action, adminNotes);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            AdminModerationService.ReportAction resolvedAction = resolveReportAction(action);
+            adminModerationService.reviewReelReport(adminId, reportId, resolvedAction, adminNotes);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Report reviewed successfully"))
@@ -291,11 +310,14 @@ public class AdminModerationController {
         @APIResponse(responseCode = "403", description = "Insufficient permissions"),
         @APIResponse(responseCode = "404", description = "Report not found")
     })
-    public Response dismissReport(@PathParam("reportId") UUID reportId) {
+    public Response dismissReport(
+            @Context SecurityContext securityContext,
+            @PathParam("reportId") UUID reportId) {
         try {
             log.info("Dismiss report request: {}", reportId);
-            
-            adminModerationService.dismissReport(reportId);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            adminModerationService.dismissReelReport(adminId, reportId, null);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Report dismissed successfully"))
@@ -333,13 +355,16 @@ public class AdminModerationController {
         @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response takeActionOnReport(
+            @Context SecurityContext securityContext,
             @PathParam("reportId") UUID reportId,
             @FormParam("action") String action,
             @FormParam("reason") String reason) {
         try {
             log.info("Take action on report request: {}", reportId);
-            
-            adminModerationService.takeActionOnReport(reportId, action, reason);
+
+            UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
+            AdminModerationService.ReportAction resolvedAction = resolveReportAction(action);
+            adminModerationService.reviewReelReport(adminId, reportId, resolvedAction, reason);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Action taken successfully"))
@@ -375,11 +400,11 @@ public class AdminModerationController {
     public Response getModerationStatistics() {
         try {
             log.info("Get moderation statistics request");
-            
-            Map<String, Long> statistics = adminModerationService.getModerationStatistics();
-            
+
+            AdminModerationService.ModerationSummary summary = adminModerationService.getModerationSummary();
+
             return Response.ok()
-                    .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
+                    .entity(new SuccessResponse<>(summary, "Statistics retrieved successfully"))
                     .build();
                     
         } catch (Exception e) {
@@ -388,5 +413,33 @@ public class AdminModerationController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private int toPageIndex(int page) {
+        return Math.max(page - 1, 0);
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> data, int page, int pageSize, long totalItems) {
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        PageResponse.PaginationInfo pagination = new PageResponse.PaginationInfo(
+                safePage,
+                safePageSize,
+                totalItems);
+        return new PageResponse<>(data, pagination);
+    }
+
+    private AdminModerationService.ReportAction resolveReportAction(String action) {
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("Action is required");
+        }
+        String normalized = action.trim().toUpperCase();
+        if ("DISMISSED".equals(normalized)) {
+            return AdminModerationService.ReportAction.DISMISS;
+        }
+        if ("ACTION_TAKEN".equals(normalized)) {
+            return AdminModerationService.ReportAction.FLAG_CONTENT;
+        }
+        return AdminModerationService.ReportAction.valueOf(normalized);
     }
 }

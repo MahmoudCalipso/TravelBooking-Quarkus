@@ -1,5 +1,6 @@
 package com.travelplatform.application.validator;
 
+import com.travelplatform.application.dto.request.user.ChangePasswordRequest;
 import com.travelplatform.application.dto.request.user.RegisterUserRequest;
 import com.travelplatform.application.dto.request.user.UpdateProfileRequest;
 import com.travelplatform.application.dto.request.user.UpdatePreferencesRequest;
@@ -151,6 +152,27 @@ public class UserValidator {
         validationService.validateUserPreferences(
                 request.getPreferredDestinations(),
                 request.getInterests());
+    }
+
+    /**
+     * Validates password change request.
+     */
+    public void validatePasswordChange(ChangePasswordRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Password change request is required");
+        }
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+            throw new IllegalArgumentException("Current password is required");
+        }
+        if (request.getNewPassword() == null || request.getNewPassword().isBlank()) {
+            throw new IllegalArgumentException("New password is required");
+        }
+        if (request.getNewPassword().length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters");
+        }
+        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+            throw new IllegalArgumentException("New password must be different from current password");
+        }
     }
 
     /**

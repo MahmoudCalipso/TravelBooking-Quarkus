@@ -20,6 +20,7 @@ import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -71,26 +72,20 @@ public class MediaController {
 
         try {
             // Validate owner ID format
+            UUID ownerUuid;
             try {
-                UUID.fromString(request.getOwnerId());
+                ownerUuid = UUID.fromString(request.getOwnerId());
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_OWNER_ID");
-                error.setMessage("Owner ID must be a valid UUID");
+                ErrorResponse error = new ErrorResponse("INVALID_OWNER_ID", "Owner ID must be a valid UUID");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Validate content type
-            if (!firebaseStorageClient.validateContentType(
-                    request.getMediaType(), 
-                    request.getContentType())) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_CONTENT_TYPE");
-                error.setMessage("Content type is not allowed for this media type");
+            if (!isAllowedContentType(request.getMediaType(), request.getContentType())) {
+                ErrorResponse error = new ErrorResponse("INVALID_CONTENT_TYPE",
+                        "Content type is not allowed for this media type");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -98,13 +93,10 @@ public class MediaController {
 
             // Validate file size if provided
             if (request.getFileSize() != null) {
-                if (!firebaseStorageClient.validateFileSize(
-                        request.getMediaType(), 
-                        request.getFileSize())) {
-                    ErrorResponse error = new ErrorResponse();
-                    error.setSuccess(false);
-                    error.setError("FILE_SIZE_EXCEEDED");
-                    error.setMessage("File size exceeds maximum allowed size for this media type");
+                Long maxFileSize = getMaxFileSize(request.getMediaType());
+                if (maxFileSize != null && request.getFileSize() > maxFileSize) {
+                    ErrorResponse error = new ErrorResponse("FILE_SIZE_EXCEEDED",
+                            "File size exceeds maximum allowed size for this media type");
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity(error)
                             .build();
@@ -112,31 +104,31 @@ public class MediaController {
             }
 
             // Generate Firebase storage path
-            String firebasePath = firebaseStorageClient.generateStoragePath(
+            String firebasePath = generateStoragePath(
                     request.getOwnerType(),
-                    request.getOwnerId(),
+                    ownerUuid,
                     request.getMediaType(),
                     request.getFileName(),
-                    request.getFolderPath()
-            );
+                    request.getFolderPath());
 
             // Generate signed URL for upload
             String uploadUrl = firebaseStorageClient.generateSignedUrl(
                     firebasePath,
-                    request.getContentType()
+                    15
             );
 
             // Create MediaAsset record
-            MediaAsset mediaAsset = new MediaAsset(
-                    UUID.randomUUID(),
-                    request.getOwnerId(),
-                    request.getOwnerType(),
-                    request.getMediaType(),
-                    firebasePath,
-                    null, // publicUrl will be set after confirmation
-                    request.getFileSize() != null ? request.getFileSize() : 0L,
-                    request.getContentType()
-            );
+            MediaAsset mediaAsset = new MediaAsset();
+            mediaAsset.setId(UUID.randomUUID());
+            mediaAsset.setOwnerId(ownerUuid);
+            mediaAsset.setOwnerType(request.getOwnerType());
+            mediaAsset.setMediaType(request.getMediaType());
+            mediaAsset.setFirebasePath(firebasePath);
+            mediaAsset.setPublicUrl(null);
+            mediaAsset.setSizeBytes(request.getFileSize() != null ? request.getFileSize() : 0L);
+            mediaAsset.setMimeType(request.getContentType());
+            mediaAsset.setCreatedAt(LocalDateTime.now());
+            mediaAsset.setUpdatedAt(LocalDateTime.now());
 
             mediaAssetRepository.save(mediaAsset);
 
@@ -159,17 +151,12 @@ public class MediaController {
 
         } catch (StorageException e) {
             log.error("Error generating upload URL", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("STORAGE_ERROR");
-            error.setMessage("Failed to generate upload URL: " + e.getMessage());
+            ErrorResponse error = new ErrorResponse("STORAGE_ERROR",
+                    "Failed to generate upload URL: " + e.getMessage());
             return Response.serverError().entity(error).build();
         } catch (Exception e) {
             log.error("Unexpected error during upload request", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected error occurred");
             return Response.serverError().entity(error).build();
         }
     }
@@ -200,22 +187,17 @@ public class MediaController {
             try {
                 assetId = UUID.fromString(mediaAssetId);
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_MEDIA_ASSET_ID");
-                error.setMessage("Media asset ID must be a valid UUID");
+                ErrorResponse error = new ErrorResponse("INVALID_MEDIA_ASSET_ID",
+                        "Media asset ID must be a valid UUID");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Find media asset
-            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId);
+            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId).orElse(null);
             if (mediaAsset == null) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("MEDIA_ASSET_NOT_FOUND");
-                error.setMessage("Media asset not found");
+                ErrorResponse error = new ErrorResponse("MEDIA_ASSET_NOT_FOUND", "Media asset not found");
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(error)
                         .build();
@@ -223,10 +205,8 @@ public class MediaController {
 
             // Verify Firebase path matches
             if (!mediaAsset.getFirebasePath().equals(request.getFirebasePath())) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("FIREBASE_PATH_MISMATCH");
-                error.setMessage("Firebase path does not match media asset");
+                ErrorResponse error = new ErrorResponse("FIREBASE_PATH_MISMATCH",
+                        "Firebase path does not match media asset");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
@@ -234,10 +214,8 @@ public class MediaController {
 
             // Verify file exists in Firebase Storage
             if (!firebaseStorageClient.fileExists(request.getFirebasePath())) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("FILE_NOT_FOUND");
-                error.setMessage("File not found in Firebase Storage");
+                ErrorResponse error = new ErrorResponse("FILE_NOT_FOUND",
+                        "File not found in Firebase Storage");
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(error)
                         .build();
@@ -245,20 +223,13 @@ public class MediaController {
 
             // Get actual file size from Firebase
             Long actualFileSize = firebaseStorageClient.getFileSize(request.getFirebasePath());
-            if (actualFileSize == null) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("FILE_SIZE_ERROR");
-                error.setMessage("Failed to retrieve file size from Firebase Storage");
-                return Response.serverError().entity(error).build();
-            }
 
             // Generate public URL
             String publicUrl = request.getPublicUrl();
             if (publicUrl == null || publicUrl.isEmpty()) {
                 publicUrl = firebaseStorageClient.generateSignedUrl(
                         request.getFirebasePath(),
-                        request.getContentType()
+                        60
                 );
             }
 
@@ -273,7 +244,7 @@ public class MediaController {
             response.setFirebasePath(mediaAsset.getFirebasePath());
             response.setPublicUrl(mediaAsset.getPublicUrl());
             response.setOwnerType(mediaAsset.getOwnerType());
-            response.setOwnerId(mediaAsset.getOwnerId());
+            response.setOwnerId(mediaAsset.getOwnerId().toString());
             response.setMediaType(mediaAsset.getMediaType());
             response.setSizeBytes(mediaAsset.getSizeBytes());
             response.setMimeType(mediaAsset.getMimeType());
@@ -290,17 +261,12 @@ public class MediaController {
 
         } catch (StorageException e) {
             log.error("Error confirming upload", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("STORAGE_ERROR");
-            error.setMessage("Failed to confirm upload: " + e.getMessage());
+            ErrorResponse error = new ErrorResponse("STORAGE_ERROR",
+                    "Failed to confirm upload: " + e.getMessage());
             return Response.serverError().entity(error).build();
         } catch (Exception e) {
             log.error("Unexpected error during upload confirmation", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected error occurred");
             return Response.serverError().entity(error).build();
         }
     }
@@ -322,22 +288,17 @@ public class MediaController {
             try {
                 assetId = UUID.fromString(mediaAssetId);
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_MEDIA_ASSET_ID");
-                error.setMessage("Media asset ID must be a valid UUID");
+                ErrorResponse error = new ErrorResponse("INVALID_MEDIA_ASSET_ID",
+                        "Media asset ID must be a valid UUID");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Find media asset
-            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId);
+            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId).orElse(null);
             if (mediaAsset == null) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("MEDIA_ASSET_NOT_FOUND");
-                error.setMessage("Media asset not found");
+                ErrorResponse error = new ErrorResponse("MEDIA_ASSET_NOT_FOUND", "Media asset not found");
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(error)
                         .build();
@@ -366,10 +327,7 @@ public class MediaController {
 
         } catch (Exception e) {
             log.error("Error retrieving media asset", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected error occurred");
             return Response.serverError().entity(error).build();
         }
     }
@@ -394,22 +352,17 @@ public class MediaController {
             try {
                 assetId = UUID.fromString(mediaAssetId);
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_MEDIA_ASSET_ID");
-                error.setMessage("Media asset ID must be a valid UUID");
+                ErrorResponse error = new ErrorResponse("INVALID_MEDIA_ASSET_ID",
+                        "Media asset ID must be a valid UUID");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Find media asset
-            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId);
+            MediaAsset mediaAsset = mediaAssetRepository.findById(assetId).orElse(null);
             if (mediaAsset == null) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("MEDIA_ASSET_NOT_FOUND");
-                error.setMessage("Media asset not found");
+                ErrorResponse error = new ErrorResponse("MEDIA_ASSET_NOT_FOUND", "Media asset not found");
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity(error)
                         .build();
@@ -434,10 +387,7 @@ public class MediaController {
 
         } catch (Exception e) {
             log.error("Error deleting media asset", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected error occurred");
             return Response.serverError().entity(error).build();
         }
     }
@@ -462,30 +412,25 @@ public class MediaController {
             try {
                 type = MediaAsset.OwnerType.valueOf(ownerType.toUpperCase());
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_OWNER_TYPE");
-                error.setMessage("Invalid owner type");
+                ErrorResponse error = new ErrorResponse("INVALID_OWNER_TYPE", "Invalid owner type");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Validate owner ID format
+            UUID ownerUuid;
             try {
-                UUID.fromString(ownerId);
+                ownerUuid = UUID.fromString(ownerId);
             } catch (IllegalArgumentException e) {
-                ErrorResponse error = new ErrorResponse();
-                error.setSuccess(false);
-                error.setError("INVALID_OWNER_ID");
-                error.setMessage("Owner ID must be a valid UUID");
+                ErrorResponse error = new ErrorResponse("INVALID_OWNER_ID", "Owner ID must be a valid UUID");
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(error)
                         .build();
             }
 
             // Find media assets
-            var mediaAssets = mediaAssetRepository.findByOwnerIdAndOwnerType(ownerId, type);
+            var mediaAssets = mediaAssetRepository.findByOwnerIdAndOwnerType(ownerUuid, type);
 
             // Build response
             Map<String, Object> data = new HashMap<>();
@@ -501,10 +446,7 @@ public class MediaController {
 
         } catch (Exception e) {
             log.error("Error retrieving media assets by owner", e);
-            ErrorResponse error = new ErrorResponse();
-            error.setSuccess(false);
-            error.setError("INTERNAL_SERVER_ERROR");
-            error.setMessage("An unexpected error occurred");
+            ErrorResponse error = new ErrorResponse("INTERNAL_SERVER_ERROR", "An unexpected error occurred");
             return Response.serverError().entity(error).build();
         }
     }
@@ -552,5 +494,39 @@ public class MediaController {
                     "text/plain"
             };
         };
+    }
+
+    private boolean isAllowedContentType(MediaAsset.MediaType mediaType, String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        for (String allowed : getAllowedContentTypes(mediaType)) {
+            if (allowed.equalsIgnoreCase(contentType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String generateStoragePath(
+            MediaAsset.OwnerType ownerType,
+            UUID ownerId,
+            MediaAsset.MediaType mediaType,
+            String fileName,
+            String folderPath) {
+        String extension = "";
+        if (fileName != null) {
+            int dotIndex = fileName.lastIndexOf('.');
+            if (dotIndex > 0) {
+                extension = fileName.substring(dotIndex);
+            }
+        }
+        String uniqueName = System.currentTimeMillis() + "_" +
+                Integer.toHexString((int) (Math.random() * 0xFFFFFF));
+        String basePath = ownerType.name().toLowerCase() + "/" + ownerId + "/" + mediaType.name().toLowerCase();
+        if (folderPath != null && !folderPath.isBlank()) {
+            basePath = basePath + "/" + folderPath.trim().replaceAll("^/+", "").replaceAll("/+$", "");
+        }
+        return basePath + "/" + uniqueName + extension;
     }
 }

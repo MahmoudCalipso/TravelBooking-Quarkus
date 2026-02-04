@@ -221,7 +221,7 @@ public class AdminAnalyticsService {
                 travelReelRepository.countByStatus(ApprovalStatus.REJECTED),
                 travelReelRepository.countByStatus(ApprovalStatus.FLAGGED),
                 travelReelRepository.countReportsByStatus(
-                        com.travelplatform.application.service.admin.AdminModerationService.ReportStatus.PENDING));
+                        com.travelplatform.domain.model.reel.ReelReport.ReportStatus.PENDING));
     }
 
     /**

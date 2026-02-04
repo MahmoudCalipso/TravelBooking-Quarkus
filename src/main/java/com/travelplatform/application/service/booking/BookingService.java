@@ -10,6 +10,7 @@ import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.model.accommodation.Accommodation;
 import com.travelplatform.domain.model.booking.Booking;
 import com.travelplatform.domain.model.booking.BookingPayment;
+import com.travelplatform.domain.model.booking.BookingFeeConfig;
 import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.repository.AccommodationRepository;
 import com.travelplatform.domain.repository.BookingRepository;
@@ -55,7 +56,8 @@ public class BookingService {
     @Inject
     PricingService pricingService;
 
-    private static final BigDecimal SERVICE_FEE_PERCENTAGE = new BigDecimal("0.10"); // 10% service fee
+    @Inject
+    BookingFeeConfigService bookingFeeConfigService;
 
     /**
      * Create a new booking.
@@ -102,10 +104,14 @@ public class BookingService {
         Money basePricePerNight = accommodation.getBasePrice();
         Money totalBasePrice = pricingService.calculateTotalPrice(accommodation, request.getCheckInDate(),
                 request.getCheckOutDate(), request.getNumberOfGuests());
+        BookingFeeConfig feeConfig = bookingFeeConfigService.getActiveConfig();
         Money serviceFee = pricingService.calculateServiceFee(totalBasePrice,
-                SERVICE_FEE_PERCENTAGE.doubleValue() * 100);
-        Money cleaningFee = pricingService.calculateCleaningFee(accommodation, totalNights);
-        Money taxAmount = pricingService.calculateTax(totalBasePrice.add(serviceFee), 0.08); // 8% tax
+                feeConfig.getServiceFeePercentage().doubleValue());
+        serviceFee = applyServiceFeeBounds(serviceFee, feeConfig);
+        Money cleaningFee = pricingService.calculateServiceFee(totalBasePrice,
+                feeConfig.getCleaningFeePercentage().doubleValue());
+        Money taxAmount = pricingService.calculateTax(totalBasePrice.add(serviceFee),
+                feeConfig.getTaxRate().doubleValue());
         Money discountAmount = new Money(BigDecimal.ZERO, accommodation.getCurrency());
         Money totalPrice = totalBasePrice.add(serviceFee).add(cleaningFee).add(taxAmount);
 
@@ -180,6 +186,20 @@ public class BookingService {
     @Transactional
     public List<BookingResponse> getBookingsByAccommodation(UUID accommodationId, BookingStatus status, int page, int pageSize) {
         List<Booking> bookings = bookingRepository.findByAccommodationIdPaginated(accommodationId, status, page, pageSize);
+        return bookingMapper.toBookingResponseList(bookings);
+    }
+
+    /**
+     * Get bookings by supplier.
+     */
+    @Transactional
+    public List<BookingResponse> getBookingsBySupplier(UUID supplierId, BookingStatus status, int page, int pageSize) {
+        List<Booking> bookings;
+        if (status != null) {
+            bookings = bookingRepository.findBySupplierIdAndStatus(supplierId, status);
+        } else {
+            bookings = bookingRepository.findBySupplierIdPaginated(supplierId, page, pageSize);
+        }
         return bookingMapper.toBookingResponseList(bookings);
     }
 
@@ -330,6 +350,36 @@ public class BookingService {
     }
 
     /**
+     * Get payment status for a booking.
+     */
+    @Transactional
+    public String getPaymentStatus(UUID userId, UUID bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        if (!booking.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("You can only view your own bookings");
+        }
+        return booking.getPayment() != null ? booking.getPayment().getStatus().name() : PaymentStatus.UNPAID.name();
+    }
+
+    /**
+     * Reject booking by supplier.
+     */
+    @Transactional
+    public BookingResponse rejectBooking(UUID supplierId, UUID bookingId, String reason) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only reject bookings for your accommodations");
+        }
+        booking.cancel(reason, supplierId);
+        bookingRepository.save(booking);
+        return bookingMapper.toBookingResponse(booking);
+    }
+
+    /**
      * Get booking statistics for supplier.
      */
     @Transactional
@@ -358,5 +408,21 @@ public class BookingService {
             int completedBookings,
             int cancelledBookings,
             BigDecimal totalRevenue) {
+    }
+
+    private Money applyServiceFeeBounds(Money serviceFee, BookingFeeConfig feeConfig) {
+        if (serviceFee == null || feeConfig == null) {
+            return serviceFee;
+        }
+        BigDecimal amount = serviceFee.getAmount();
+        if (feeConfig.getServiceFeeMinimum() != null
+                && amount.compareTo(feeConfig.getServiceFeeMinimum()) < 0) {
+            return new Money(feeConfig.getServiceFeeMinimum(), serviceFee.getCurrency());
+        }
+        if (feeConfig.getServiceFeeMaximum() != null
+                && amount.compareTo(feeConfig.getServiceFeeMaximum()) > 0) {
+            return new Money(feeConfig.getServiceFeeMaximum(), serviceFee.getCurrency());
+        }
+        return serviceFee;
     }
 }

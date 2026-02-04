@@ -4,7 +4,6 @@ import com.travelplatform.domain.enums.NotificationType;
 import com.travelplatform.domain.model.notification.Notification;
 import com.travelplatform.domain.repository.NotificationRepository;
 import com.travelplatform.infrastructure.persistence.entity.NotificationEntity;
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -19,11 +18,9 @@ import java.util.stream.Collectors;
 
 /**
  * JPA implementation of NotificationRepository.
- * This class implements repository interface defined in Domain layer
- * using JPA/Hibernate for data persistence.
  */
 @ApplicationScoped
-public class JpaNotificationRepository implements NotificationRepository, PanacheRepository<NotificationEntity> {
+public class JpaNotificationRepository implements NotificationRepository {
 
     @Inject
     EntityManager entityManager;
@@ -41,104 +38,10 @@ public class JpaNotificationRepository implements NotificationRepository, Panach
     }
 
     @Override
-    public Optional<Notification> findById(UUID id) {
-        NotificationEntity entity = entityManager.find(NotificationEntity.class, id);
-        return entity != null ? Optional.of(toDomain(entity)) : Optional.empty();
-    }
-
-    @Override
-    public List<Notification> findByUserId(UUID userId) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findByUserIdAndType(UUID userId, NotificationType type) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        query.setParameter("type", type);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findUnreadByUserId(UUID userId) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = false ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findReadByUserId(UUID userId) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = true ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findByRelatedEntity(String relatedEntityType, UUID relatedEntityId) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.relatedEntityType = :relatedEntityType AND n.relatedEntityId = :relatedEntityId ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("relatedEntityType", relatedEntityType);
-        query.setParameter("relatedEntityId", relatedEntityId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findRecentByUserId(UUID userId, int limit) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        query.setMaxResults(limit);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findRecentUnreadByUserId(UUID userId, int limit) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = false ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        query.setMaxResults(limit);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Notification> findByDateRange(UUID userId, LocalDateTime startDate, LocalDateTime endDate) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.createdAt >= :startDate AND n.createdAt <= :endDate ORDER BY n.createdAt DESC", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        query.setParameter("startDate", startDate);
-        query.setParameter("endDate", endDate);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
     @Transactional
-    public void delete(Notification notification) {
-        NotificationEntity entity = entityManager.find(NotificationEntity.class, notification.getId());
-        if (entity != null) {
-            entityManager.remove(entity);
-        }
+    public Notification update(Notification notification) {
+        NotificationEntity entity = entityManager.merge(toEntity(notification));
+        return toDomain(entity);
     }
 
     @Override
@@ -151,51 +54,132 @@ public class JpaNotificationRepository implements NotificationRepository, Panach
     }
 
     @Override
-    @Transactional
-    public void deleteByUserId(UUID userId) {
-        TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        List<NotificationEntity> entities = query.getResultList();
-        for (NotificationEntity entity : entities) {
-            entityManager.remove(entity);
-        }
+    public Optional<Notification> findById(UUID id) {
+        NotificationEntity entity = entityManager.find(NotificationEntity.class, id);
+        return entity != null ? Optional.of(toDomain(entity)) : Optional.empty();
     }
 
     @Override
-    @Transactional
-    public void deleteReadByUserId(UUID userId) {
+    public List<Notification> findAll() {
         TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = true", NotificationEntity.class);
-        query.setParameter("userId", userId);
-        List<NotificationEntity> entities = query.getResultList();
-        for (NotificationEntity entity : entities) {
-            entityManager.remove(entity);
-        }
+            "SELECT n FROM NotificationEntity n", NotificationEntity.class);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
-    @Transactional
-    public void deleteOlderThan(LocalDateTime date) {
+    public List<Notification> findByUserId(UUID userId) {
+        return findByUserIdPaginatedSortedByDateDesc(userId, 0, Integer.MAX_VALUE);
+    }
+
+    @Override
+    public List<Notification> findByUserIdPaginated(UUID userId, int page, int pageSize) {
+        return findByUserIdPaginatedSortedByDateDesc(userId, page, pageSize);
+    }
+
+    @Override
+    public List<Notification> findByType(NotificationType type) {
         TypedQuery<NotificationEntity> query = entityManager.createQuery(
-            "SELECT n FROM NotificationEntity n WHERE n.createdAt < :date", NotificationEntity.class);
+            "SELECT n FROM NotificationEntity n WHERE n.type = :type ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("type", type);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndType(UUID userId, NotificationType type) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("type", type);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findUnreadByUserId(UUID userId) {
+        return findByUserIdAndIsRead(userId, false);
+    }
+
+    @Override
+    public List<Notification> findReadByUserId(UUID userId) {
+        return findByUserIdAndIsRead(userId, true);
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndIsRead(UUID userId, boolean isRead) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = :isRead ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("isRead", isRead);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByRelatedEntity(String entityType, UUID entityId) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.relatedEntityType = :entityType AND n.relatedEntityId = :entityId ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("entityType", entityType);
+        query.setParameter("entityId", entityId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndRelatedEntity(UUID userId, String entityType, UUID entityId) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.relatedEntityType = :entityType AND n.relatedEntityId = :entityId ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("entityType", entityType);
+        query.setParameter("entityId", entityId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndCreatedAtAfter(UUID userId, LocalDateTime date) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.createdAt >= :date ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
         query.setParameter("date", date);
-        List<NotificationEntity> entities = query.getResultList();
-        for (NotificationEntity entity : entities) {
-            entityManager.remove(entity);
-        }
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
-    public boolean existsById(UUID id) {
-        return entityManager.find(NotificationEntity.class, id) != null;
+    public List<Notification> findByUserIdAndCreatedAtBefore(UUID userId, LocalDateTime date) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.createdAt <= :date ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("date", date);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
-    public long count() {
-        TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(n) FROM NotificationEntity n", Long.class);
-        return query.getSingleResult();
+    public List<Notification> findByUserIdAndCreatedAtBetween(UUID userId, LocalDateTime startDate, LocalDateTime endDate) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.createdAt BETWEEN :startDate AND :endDate ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findLatestByUserId(UUID userId, int limit) {
+        return findByUserIdPaginatedSortedByDateDesc(userId, 0, limit);
+    }
+
+    @Override
+    public List<Notification> findLatestUnreadByUserId(UUID userId, int limit) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = false ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setMaxResults(limit);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
@@ -240,15 +224,244 @@ public class JpaNotificationRepository implements NotificationRepository, Panach
     }
 
     @Override
-    public long countUnreadByUserIdAndType(UUID userId, NotificationType type) {
+    public long countAll() {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(n) FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type AND n.isRead = false", Long.class);
-        query.setParameter("userId", userId);
-        query.setParameter("type", type);
+            "SELECT COUNT(n) FROM NotificationEntity n", Long.class);
         return query.getSingleResult();
     }
 
-    // Helper methods for Entity <-> Domain conversion
+    @Override
+    @Transactional
+    public long markAllAsReadByUserId(UUID userId) {
+        return entityManager.createQuery(
+            "UPDATE NotificationEntity n SET n.isRead = true, n.readAt = :readAt WHERE n.userId = :userId AND n.isRead = false")
+            .setParameter("readAt", LocalDateTime.now())
+            .setParameter("userId", userId)
+            .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public long markAsReadByUserIdAndType(UUID userId, NotificationType type) {
+        return entityManager.createQuery(
+            "UPDATE NotificationEntity n SET n.isRead = true, n.readAt = :readAt WHERE n.userId = :userId AND n.type = :type AND n.isRead = false")
+            .setParameter("readAt", LocalDateTime.now())
+            .setParameter("userId", userId)
+            .setParameter("type", type)
+            .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public long deleteOldNotificationsBeforeDate(LocalDateTime date) {
+        return entityManager.createQuery(
+            "DELETE FROM NotificationEntity n WHERE n.createdAt < :date")
+            .setParameter("date", date)
+            .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public long deleteReadNotificationsByUserId(UUID userId) {
+        return entityManager.createQuery(
+            "DELETE FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = true")
+            .setParameter("userId", userId)
+            .executeUpdate();
+    }
+
+    @Override
+    @Transactional
+    public long deleteByRelatedEntity(String entityType, UUID entityId) {
+        return entityManager.createQuery(
+            "DELETE FROM NotificationEntity n WHERE n.relatedEntityType = :entityType AND n.relatedEntityId = :entityId")
+            .setParameter("entityType", entityType)
+            .setParameter("entityId", entityId)
+            .executeUpdate();
+    }
+
+    @Override
+    public List<Notification> findByUserIdPaginatedWithFilter(UUID userId, int page, int pageSize, Boolean isRead) {
+        String jpql = "SELECT n FROM NotificationEntity n WHERE n.userId = :userId";
+        if (isRead != null) {
+            jpql += " AND n.isRead = :isRead";
+        }
+        jpql += " ORDER BY n.createdAt DESC";
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(jpql, NotificationEntity.class);
+        query.setParameter("userId", userId);
+        if (isRead != null) {
+            query.setParameter("isRead", isRead);
+        }
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTypeAndIsRead(UUID userId, NotificationType type, boolean isRead) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type AND n.isRead = :isRead ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("type", type);
+        query.setParameter("isRead", isRead);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTypes(UUID userId, List<NotificationType> types) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type IN :types ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("types", types);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTypesAndIsRead(UUID userId, List<NotificationType> types, boolean isRead) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type IN :types AND n.isRead = :isRead ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("types", types);
+        query.setParameter("isRead", isRead);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findWithActionUrlByUserId(UUID userId) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.actionUrl IS NOT NULL AND n.actionUrl <> '' ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findWithoutActionUrlByUserId(UUID userId) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND (n.actionUrl IS NULL OR n.actionUrl = '') ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndLastNDays(UUID userId, int days) {
+        return findByUserIdAndCreatedAtAfter(userId, LocalDateTime.now().minusDays(days));
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndLastNHours(UUID userId, int hours) {
+        return findByUserIdAndCreatedAtAfter(userId, LocalDateTime.now().minusHours(hours));
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndLastNMinutes(UUID userId, int minutes) {
+        return findByUserIdAndCreatedAtAfter(userId, LocalDateTime.now().minusMinutes(minutes));
+    }
+
+    @Override
+    public List<Notification> findOldestByUserId(UUID userId, int limit) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId ORDER BY n.createdAt ASC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setMaxResults(limit);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTitleContaining(UUID userId, String keyword) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND LOWER(n.title) LIKE LOWER(:keyword) ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("keyword", "%" + keyword + "%");
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndMessageContaining(UUID userId, String keyword) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND LOWER(n.message) LIKE LOWER(:keyword) ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("keyword", "%" + keyword + "%");
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndKeyword(UUID userId, String keyword) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND " +
+            "(LOWER(n.title) LIKE LOWER(:keyword) OR LOWER(n.message) LIKE LOWER(:keyword)) ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("keyword", "%" + keyword + "%");
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdPaginatedSortedByDateDesc(UUID userId, int page, int pageSize) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdPaginatedSortedByDateAsc(UUID userId, int page, int pageSize) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId ORDER BY n.createdAt ASC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndIsReadPaginated(UUID userId, boolean isRead, int page, int pageSize) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.isRead = :isRead ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("isRead", isRead);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTypePaginated(UUID userId, NotificationType type, int page, int pageSize) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("type", type);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Notification> findByUserIdAndTypeAndIsReadPaginated(UUID userId, NotificationType type, boolean isRead,
+            int page, int pageSize) {
+        TypedQuery<NotificationEntity> query = entityManager.createQuery(
+            "SELECT n FROM NotificationEntity n WHERE n.userId = :userId AND n.type = :type AND n.isRead = :isRead ORDER BY n.createdAt DESC",
+            NotificationEntity.class);
+        query.setParameter("userId", userId);
+        query.setParameter("type", type);
+        query.setParameter("isRead", isRead);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
     private Notification toDomain(NotificationEntity entity) {
         return new Notification(
             entity.getId(),
@@ -272,8 +485,8 @@ public class JpaNotificationRepository implements NotificationRepository, Panach
         entity.setType(domain.getType());
         entity.setTitle(domain.getTitle());
         entity.setMessage(domain.getMessage());
-        entity.setRelatedEntityType(domain.getRelatedEntityType());
-        entity.setRelatedEntityId(domain.getRelatedEntityId());
+        entity.setRelatedEntityType(domain.getEntityType());
+        entity.setRelatedEntityId(domain.getEntityId());
         entity.setActionUrl(domain.getActionUrl());
         entity.setRead(domain.isRead());
         entity.setCreatedAt(domain.getCreatedAt());

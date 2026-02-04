@@ -370,6 +370,10 @@ public class Event {
         incrementParticipants();
     }
 
+    public void decrementParticipantCount() {
+        decrementParticipants();
+    }
+
     /**
      * Checks if the event is approved.
      *

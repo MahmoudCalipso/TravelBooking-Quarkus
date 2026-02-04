@@ -1,12 +1,14 @@
 package com.travelplatform.application.validator;
 
 import com.travelplatform.application.dto.request.review.CreateReviewRequest;
+import com.travelplatform.domain.model.review.Review;
 import com.travelplatform.domain.service.ValidationService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 /**
  * Validator for review-related operations.
@@ -129,11 +131,14 @@ public class ReviewValidator {
         }
 
         // Use domain validation service
-        validationService.validateReview(
-            request.getAccommodationId(),
-            request.getOverallRating(),
-            request.getContent()
-        );
+        Review tempReview = new Review(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                request.getAccommodationId(),
+                request.getBookingId(),
+                request.getOverallRating(),
+                request.getContent());
+        validationService.validateReview(tempReview);
     }
 
     /**

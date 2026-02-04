@@ -174,10 +174,10 @@ public class FirebaseUploadService implements FirebaseStorageClient {
             BlobId destBlobId = BlobId.of(firebaseConfig.getStorageBucket(), destinationPath);
             Blob copiedBlob = storage.copy(
                     Storage.CopyRequest.newBuilder()
-                            .setSource(sourceBlob)
+                            .setSource(sourceBlobId)
                             .setTarget(destBlobId)
                             .build()
-            );
+            ).getResult();
 
             // Get the public URL
             String publicUrl = String.format(

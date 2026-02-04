@@ -53,10 +53,9 @@ public class AuthenticationService {
         // Create new user
 
         User user = new User(
-                UUID.randomUUID(),
                 request.getEmail(),
                 hashPassword(request.getPassword()),
-                request.getRole());
+                UserRole.valueOf(request.getRole()));
 
         // Create default profile
         UserProfile profile = new UserProfile(user.getId());
@@ -80,6 +79,14 @@ public class AuthenticationService {
         response.setExpiresIn(TOKEN_EXPIRATION_HOURS * 3600);
         response.setUser(userMapper.toUserResponse(user));
         return response;
+    }
+
+    /**
+     * Alias for controller compatibility.
+     */
+    @Transactional
+    public AuthResponse registerUser(RegisterUserRequest request) {
+        return register(request);
     }
 
     /**
@@ -188,6 +195,20 @@ public class AuthenticationService {
     public void resetPassword(String token, String newPassword) {
         // TODO: Verify token and reset password
         // For now, this is a placeholder
+    }
+
+    /**
+     * Change password for authenticated user.
+     */
+    @Transactional
+    public void changePassword(String userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (!user.getPasswordHash().equals(hashPassword(currentPassword))) {
+            throw new IllegalArgumentException("Invalid current password");
+        }
+        user.setPasswordHash(hashPassword(newPassword));
+        userRepository.save(user);
     }
 
     /**

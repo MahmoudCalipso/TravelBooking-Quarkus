@@ -1,9 +1,9 @@
 package com.travelplatform.interfaces.rest.exception;
 
-import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
@@ -18,12 +18,12 @@ import java.time.Instant;
  */
 @Provider
 @ApplicationScoped
-public class SecurityExceptionHandler implements ExceptionMapper<SecurityException> {
+public class SecurityExceptionHandler implements ExceptionMapper<WebApplicationException> {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityExceptionHandler.class);
 
     @Override
-    public Response toResponse(SecurityException exception) {
+    public Response toResponse(WebApplicationException exception) {
         if (exception instanceof NotAuthorizedException) {
             return handleNotAuthorizedException((NotAuthorizedException) exception);
         }
@@ -67,7 +67,7 @@ public class SecurityExceptionHandler implements ExceptionMapper<SecurityExcepti
     /**
      * Handle generic security exceptions.
      */
-    private Response handleGenericSecurityException(SecurityException exception) {
+    private Response handleGenericSecurityException(WebApplicationException exception) {
         log.error("Security exception occurred", exception);
         return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                 .entity(new ErrorResponse(

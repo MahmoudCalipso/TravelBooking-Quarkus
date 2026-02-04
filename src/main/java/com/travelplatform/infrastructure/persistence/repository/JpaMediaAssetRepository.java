@@ -3,8 +3,10 @@ package com.travelplatform.infrastructure.persistence.repository;
 import com.travelplatform.domain.model.media.MediaAsset;
 import com.travelplatform.domain.repository.MediaAssetRepository;
 import com.travelplatform.infrastructure.persistence.entity.MediaAssetEntity;
-import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
 
 import java.util.List;
@@ -13,162 +15,149 @@ import java.util.UUID;
 
 /**
  * JPA Repository implementation for MediaAsset.
- * Implements the MediaAssetRepository interface using Panache.
  */
 @ApplicationScoped
 public class JpaMediaAssetRepository implements MediaAssetRepository {
 
-    /**
-     * Save a media asset to the database.
-     */
+    @Inject
+    EntityManager entityManager;
+
     @Override
     @Transactional
     public MediaAsset save(MediaAsset mediaAsset) {
         MediaAssetEntity entity = new MediaAssetEntity(mediaAsset);
-        entity.persist();
+        MediaAssetEntity existing = entityManager.find(MediaAssetEntity.class, entity.getId());
+        if (existing == null) {
+            entityManager.persist(entity);
+        } else {
+            entity = entityManager.merge(entity);
+        }
         return entity.toDomain();
     }
 
-    /**
-     * Find a media asset by its ID.
-     */
     @Override
     public Optional<MediaAsset> findById(UUID id) {
-        MediaAssetEntity entity = MediaAssetEntity.findById(id);
+        MediaAssetEntity entity = entityManager.find(MediaAssetEntity.class, id);
         return entity != null ? Optional.of(entity.toDomain()) : Optional.empty();
     }
 
-    /**
-     * Find all media assets owned by a specific user.
-     */
     @Override
     public List<MediaAsset> findByOwnerId(UUID ownerId) {
-        return MediaAssetEntity.list("ownerId", ownerId)
-                .stream()
-                .map(MediaAssetEntity::toDomain)
-                .toList();
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m WHERE m.ownerId = :ownerId", MediaAssetEntity.class);
+        query.setParameter("ownerId", ownerId);
+        return query.getResultList().stream().map(MediaAssetEntity::toDomain).toList();
     }
 
-    /**
-     * Find all media assets for a specific owner and owner type.
-     */
     @Override
     public List<MediaAsset> findByOwnerIdAndOwnerType(UUID ownerId, MediaAsset.OwnerType ownerType) {
-        return MediaAssetEntity.list("ownerId = ?1 and ownerType = ?2", ownerId, ownerType)
-                .stream()
-                .map(MediaAssetEntity::toDomain)
-                .toList();
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m WHERE m.ownerId = :ownerId AND m.ownerType = :ownerType",
+            MediaAssetEntity.class);
+        query.setParameter("ownerId", ownerId);
+        query.setParameter("ownerType", ownerType);
+        return query.getResultList().stream().map(MediaAssetEntity::toDomain).toList();
     }
 
-    /**
-     * Find all media assets of a specific type.
-     */
     @Override
     public List<MediaAsset> findByMediaType(MediaAsset.MediaType mediaType) {
-        return MediaAssetEntity.list("mediaType", mediaType)
-                .stream()
-                .map(MediaAssetEntity::toDomain)
-                .toList();
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m WHERE m.mediaType = :mediaType", MediaAssetEntity.class);
+        query.setParameter("mediaType", mediaType);
+        return query.getResultList().stream().map(MediaAssetEntity::toDomain).toList();
     }
 
-    /**
-     * Find all media assets for a specific owner, owner type, and media type.
-     */
     @Override
-    public List<MediaAsset> findByOwnerIdAndOwnerTypeAndMediaType(UUID ownerId, MediaAsset.OwnerType ownerType, MediaAsset.MediaType mediaType) {
-        return MediaAssetEntity.list("ownerId = ?1 and ownerType = ?2 and mediaType = ?3", ownerId, ownerType, mediaType)
-                .stream()
-                .map(MediaAssetEntity::toDomain)
-                .toList();
+    public List<MediaAsset> findByOwnerIdAndOwnerTypeAndMediaType(UUID ownerId, MediaAsset.OwnerType ownerType,
+            MediaAsset.MediaType mediaType) {
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m WHERE m.ownerId = :ownerId AND m.ownerType = :ownerType AND m.mediaType = :mediaType",
+            MediaAssetEntity.class);
+        query.setParameter("ownerId", ownerId);
+        query.setParameter("ownerType", ownerType);
+        query.setParameter("mediaType", mediaType);
+        return query.getResultList().stream().map(MediaAssetEntity::toDomain).toList();
     }
 
-    /**
-     * Find a media asset by its Firebase storage path.
-     */
     @Override
     public Optional<MediaAsset> findByFirebasePath(String firebasePath) {
-        List<MediaAssetEntity> results = MediaAssetEntity.list("firebasePath", firebasePath);
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m WHERE m.firebasePath = :firebasePath", MediaAssetEntity.class);
+        query.setParameter("firebasePath", firebasePath);
+        query.setMaxResults(1);
+        List<MediaAssetEntity> results = query.getResultList();
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0).toDomain());
     }
 
-    /**
-     * Find all media assets.
-     */
     @Override
     public List<MediaAsset> findAll() {
-        return MediaAssetEntity.listAll()
-                .stream()
-                .map(MediaAssetEntity::toDomain)
-                .toList();
+        TypedQuery<MediaAssetEntity> query = entityManager.createQuery(
+            "SELECT m FROM MediaAssetEntity m", MediaAssetEntity.class);
+        return query.getResultList().stream().map(MediaAssetEntity::toDomain).toList();
     }
 
-    /**
-     * Delete a media asset by its ID.
-     */
     @Override
     @Transactional
     public void deleteById(UUID id) {
-        MediaAssetEntity.deleteById(id);
+        MediaAssetEntity entity = entityManager.find(MediaAssetEntity.class, id);
+        if (entity != null) {
+            entityManager.remove(entity);
+        }
     }
 
-    /**
-     * Delete all media assets owned by a specific user.
-     */
     @Override
     @Transactional
     public void deleteByOwnerId(UUID ownerId) {
-        MediaAssetEntity.delete("ownerId", ownerId);
+        entityManager.createQuery("DELETE FROM MediaAssetEntity m WHERE m.ownerId = :ownerId")
+            .setParameter("ownerId", ownerId)
+            .executeUpdate();
     }
 
-    /**
-     * Delete all media assets for a specific owner and owner type.
-     */
     @Override
     @Transactional
     public void deleteByOwnerIdAndOwnerType(UUID ownerId, MediaAsset.OwnerType ownerType) {
-        MediaAssetEntity.delete("ownerId = ?1 and ownerType = ?2", ownerId, ownerType);
+        entityManager.createQuery("DELETE FROM MediaAssetEntity m WHERE m.ownerId = :ownerId AND m.ownerType = :ownerType")
+            .setParameter("ownerId", ownerId)
+            .setParameter("ownerType", ownerType)
+            .executeUpdate();
     }
 
-    /**
-     * Check if a media asset exists by its ID.
-     */
     @Override
     public boolean existsById(UUID id) {
-        return MediaAssetEntity.count("id", id) > 0;
+        return entityManager.find(MediaAssetEntity.class, id) != null;
     }
 
-    /**
-     * Count total number of media assets owned by a user.
-     */
     @Override
     public long countByOwnerId(UUID ownerId) {
-        return MediaAssetEntity.count("ownerId", ownerId);
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(m) FROM MediaAssetEntity m WHERE m.ownerId = :ownerId", Long.class);
+        query.setParameter("ownerId", ownerId);
+        return query.getSingleResult();
     }
 
-    /**
-     * Count total number of media assets for a specific owner and owner type.
-     */
     @Override
     public long countByOwnerIdAndOwnerType(UUID ownerId, MediaAsset.OwnerType ownerType) {
-        return MediaAssetEntity.count("ownerId = ?1 and ownerType = ?2", ownerId, ownerType);
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(m) FROM MediaAssetEntity m WHERE m.ownerId = :ownerId AND m.ownerType = :ownerType",
+            Long.class);
+        query.setParameter("ownerId", ownerId);
+        query.setParameter("ownerType", ownerType);
+        return query.getSingleResult();
     }
 
-    /**
-     * Count total number of media assets of a specific type.
-     */
     @Override
     public long countByMediaType(MediaAsset.MediaType mediaType) {
-        return MediaAssetEntity.count("mediaType", mediaType);
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(m) FROM MediaAssetEntity m WHERE m.mediaType = :mediaType", Long.class);
+        query.setParameter("mediaType", mediaType);
+        return query.getSingleResult();
     }
 
-    /**
-     * Calculate total storage size in bytes for a specific owner.
-     */
     @Override
     public long getTotalSizeByOwnerId(UUID ownerId) {
-        List<MediaAssetEntity> assets = MediaAssetEntity.list("ownerId", ownerId);
-        return assets.stream()
-                .mapToLong(MediaAssetEntity::getSizeBytes)
-                .sum();
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COALESCE(SUM(m.sizeBytes), 0) FROM MediaAssetEntity m WHERE m.ownerId = :ownerId", Long.class);
+        query.setParameter("ownerId", ownerId);
+        return query.getSingleResult();
     }
 }

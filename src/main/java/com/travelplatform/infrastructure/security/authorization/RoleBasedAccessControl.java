@@ -31,7 +31,7 @@ public class RoleBasedAccessControl {
      * @return true if user has the role, false otherwise
      */
     public boolean hasRole(UserRole role) {
-        Principal principal = securityContext.getUserPrincipal();
+        Principal principal = securityContext.getCallerPrincipal();
         if (principal == null) {
             return false;
         }
@@ -107,7 +107,7 @@ public class RoleBasedAccessControl {
      * @return true if user is authenticated, false otherwise
      */
     public boolean isAuthenticated() {
-        return securityContext.getUserPrincipal() != null;
+        return securityContext.getCallerPrincipal() != null;
     }
 
     /**
@@ -116,7 +116,7 @@ public class RoleBasedAccessControl {
      * @return User ID or empty if not authenticated
      */
     public Optional<UUID> getCurrentUserId() {
-        Principal principal = securityContext.getUserPrincipal();
+        Principal principal = securityContext.getCallerPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -140,7 +140,7 @@ public class RoleBasedAccessControl {
      * @return User email or empty if not available
      */
     public Optional<String> getCurrentUserEmail() {
-        Principal principal = securityContext.getUserPrincipal();
+        Principal principal = securityContext.getCallerPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -159,7 +159,7 @@ public class RoleBasedAccessControl {
      * @return User role or empty if not available
      */
     public Optional<UserRole> getCurrentUserRole() {
-        Principal principal = securityContext.getUserPrincipal();
+        Principal principal = securityContext.getCallerPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -351,9 +351,19 @@ public class RoleBasedAccessControl {
             return List.of(UserRole.SUPER_ADMIN);
         }
 
+        // CMS endpoints
+        if (endpoint.startsWith("/api/v1/cms/")) {
+            return List.of(UserRole.SUPER_ADMIN);
+        }
+
         // Supplier endpoints
         if (endpoint.startsWith("/api/v1/supplier/")) {
             return List.of(UserRole.SUPPLIER_SUBSCRIBER, UserRole.SUPER_ADMIN);
+        }
+
+        // Website booking and mobile endpoints
+        if (endpoint.startsWith("/api/v1/website-booking/") || endpoint.startsWith("/api/v1/mobile/")) {
+            return List.of(UserRole.SUPPLIER_SUBSCRIBER, UserRole.TRAVELER, UserRole.ASSOCIATION_MANAGER, UserRole.SUPER_ADMIN);
         }
 
         // Accommodation creation

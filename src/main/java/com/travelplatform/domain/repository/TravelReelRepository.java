@@ -246,7 +246,25 @@ public interface TravelReelRepository {
     /**
      * Saves a report.
      */
-    void saveReport(TravelReel travelReel);
+    void saveReport(ReelReport report);
+
+    /**
+     * Finds reports submitted by a user.
+     *
+     * @param reporterId user ID
+     * @param page       page number (0-indexed)
+     * @param pageSize   page size
+     * @return list of reports
+     */
+    List<ReelReport> findReportsByReporter(UUID reporterId, int page, int pageSize);
+
+    /**
+     * Counts reports submitted by a user.
+     *
+     * @param reporterId user ID
+     * @return count of reports
+     */
+    long countReportsByReporter(UUID reporterId);
 
     /**
      * Finds trending reels (high engagement).

@@ -6,6 +6,7 @@ import com.travelplatform.application.dto.response.common.ErrorResponse;
 import com.travelplatform.application.dto.response.common.PageResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.service.booking.BookingService;
+import com.travelplatform.domain.enums.BookingStatus;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -102,14 +103,21 @@ public class BookingController {
         try {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get bookings request for user: {}", userId);
-            
-            PageResponse<BookingResponse> bookings = bookingService.getBookingsByUser(
-                    UUID.fromString(userId), status, page, pageSize);
-            
+
+            BookingStatus bookingStatus = parseBookingStatus(status);
+            var bookingList = bookingService.getBookingsByUser(
+                    UUID.fromString(userId), bookingStatus, page, pageSize);
+            PageResponse<BookingResponse> bookings = buildPageResponse(bookingList, page, pageSize);
+
             return Response.ok()
                     .entity(bookings)
                     .build();
                     
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid booking status: {}", e.getMessage());
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("INVALID_STATUS", e.getMessage()))
+                    .build();
         } catch (Exception e) {
             log.error("Unexpected error getting bookings", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -141,7 +149,7 @@ public class BookingController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get booking by ID request: {} by user: {}", bookingId, userId);
             
-            BookingResponse booking = bookingService.getBookingById(UUID.fromString(userId), bookingId);
+            BookingResponse booking = bookingService.getBookingById(bookingId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(booking, "Booking retrieved successfully"))
@@ -229,7 +237,7 @@ public class BookingController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Complete booking request: {} by user: {}", bookingId, userId);
             
-            bookingService.completeBooking(UUID.fromString(userId), bookingId);
+            bookingService.completeBooking(bookingId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Booking completed successfully"))
@@ -278,7 +286,7 @@ public class BookingController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Process payment request for booking: {} by user: {}", bookingId, userId);
             
-            bookingService.processPayment(UUID.fromString(userId), bookingId, paymentMethod, paymentProvider, transactionId);
+            bookingService.processPayment(bookingId, transactionId);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Payment processed successfully"))
@@ -365,7 +373,7 @@ public class BookingController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Request refund for booking: {} by user: {}", bookingId, userId);
             
-            bookingService.refundBooking(UUID.fromString(userId), bookingId, reason);
+            bookingService.refundBooking(bookingId, reason);
             
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Refund requested successfully"))
@@ -411,13 +419,20 @@ public class BookingController {
             String supplierId = securityContext.getUserPrincipal().getName();
             log.info("Get supplier bookings request for supplier: {}", supplierId);
             
-            PageResponse<BookingResponse> bookings = bookingService.getBookingsBySupplier(
-                    UUID.fromString(supplierId), status, page, pageSize);
+            BookingStatus bookingStatus = parseBookingStatus(status);
+            var bookingList = bookingService.getBookingsBySupplier(
+                    UUID.fromString(supplierId), bookingStatus, page, pageSize);
+            PageResponse<BookingResponse> bookings = buildPageResponse(bookingList, page, pageSize);
             
             return Response.ok()
                     .entity(bookings)
                     .build();
                     
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid booking status: {}", e.getMessage());
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("INVALID_STATUS", e.getMessage()))
+                    .build();
         } catch (Exception e) {
             log.error("Unexpected error getting supplier bookings", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -546,5 +561,23 @@ public class BookingController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private BookingStatus parseBookingStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return BookingStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid booking status: " + status);
+        }
+    }
+
+    private PageResponse<BookingResponse> buildPageResponse(
+            java.util.List<BookingResponse> bookings, int page, int pageSize) {
+        PageResponse.PaginationInfo pagination =
+                new PageResponse.PaginationInfo(page, pageSize, (long) bookings.size());
+        return new PageResponse<>(bookings, pagination);
     }
 }

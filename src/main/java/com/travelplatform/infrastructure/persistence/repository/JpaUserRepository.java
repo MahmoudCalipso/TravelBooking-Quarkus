@@ -3,16 +3,18 @@ package com.travelplatform.infrastructure.persistence.repository;
 import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.enums.UserStatus;
 import com.travelplatform.domain.model.user.User;
+import com.travelplatform.domain.model.user.UserPreferences;
+import com.travelplatform.domain.model.user.UserProfile;
 import com.travelplatform.domain.repository.UserRepository;
 import com.travelplatform.infrastructure.persistence.entity.UserEntity;
-import io.quarkus.hibernate.orm.panache.PanacheRepository;
+import com.travelplatform.infrastructure.persistence.entity.UserPreferencesEntity;
+import com.travelplatform.infrastructure.persistence.entity.UserProfileEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,11 +22,9 @@ import java.util.stream.Collectors;
 
 /**
  * JPA implementation of UserRepository.
- * This class implements the repository interface defined in the Domain layer
- * using JPA/Hibernate for data persistence.
  */
 @ApplicationScoped
-public class JpaUserRepository implements UserRepository, PanacheRepository<UserEntity> {
+public class JpaUserRepository implements UserRepository {
 
     @Inject
     EntityManager entityManager;
@@ -39,6 +39,22 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
             entity = entityManager.merge(entity);
         }
         return toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public User update(User user) {
+        UserEntity entity = entityManager.merge(toEntity(user));
+        return toDomain(entity);
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(UUID id) {
+        UserEntity entity = entityManager.find(UserEntity.class, id);
+        if (entity != null) {
+            entityManager.remove(entity);
+        }
     }
 
     @Override
@@ -57,108 +73,6 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
     }
 
     @Override
-    public List<User> findAll() {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u", UserEntity.class);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> findByRole(UserRole role) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.role = :role", UserEntity.class);
-        query.setParameter("role", role);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> findByStatus(UserStatus status) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.status = :status", UserEntity.class);
-        query.setParameter("status", status);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> findByRoleAndStatus(UserRole role, UserStatus status) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.role = :role AND u.status = :status", UserEntity.class);
-        query.setParameter("role", role);
-        query.setParameter("status", status);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> searchUsers(String searchTerm) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE " +
-            "LOWER(u.email) LIKE LOWER(:search) OR " +
-            "EXISTS (SELECT p FROM UserProfileEntity p WHERE p.userId = u.id AND " +
-            "LOWER(p.fullName) LIKE LOWER(:search))", UserEntity.class);
-        query.setParameter("search", "%" + searchTerm + "%");
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> findFollowers(UUID userId) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.id IN " +
-            "(SELECT f.followerId FROM UserFollowEntity f WHERE f.followingId = :userId)", UserEntity.class);
-        query.setParameter("userId", userId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<User> findFollowing(UUID userId) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.id IN " +
-            "(SELECT f.followingId FROM UserFollowEntity f WHERE f.followerId = :userId)", UserEntity.class);
-        query.setParameter("userId", userId);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
-    }
-
-    @Override
-    public boolean isFollowing(UUID followerId, UUID followingId) {
-        TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(f) FROM UserFollowEntity f WHERE f.followerId = :followerId AND f.followingId = :followingId", Long.class);
-        query.setParameter("followerId", followerId);
-        query.setParameter("followingId", followingId);
-        return query.getSingleResult() > 0;
-    }
-
-    @Override
-    @Transactional
-    public void delete(User user) {
-        UserEntity entity = entityManager.find(UserEntity.class, user.getId());
-        if (entity != null) {
-            entityManager.remove(entity);
-        }
-    }
-
-    @Override
-    @Transactional
-    public void deleteById(UUID id) {
-        UserEntity entity = entityManager.find(UserEntity.class, id);
-        if (entity != null) {
-            entityManager.remove(entity);
-        }
-    }
-
-    @Override
     public boolean existsByEmail(String email) {
         TypedQuery<Long> query = entityManager.createQuery(
             "SELECT COUNT(u) FROM UserEntity u WHERE u.email = :email", Long.class);
@@ -167,15 +81,64 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
     }
 
     @Override
-    public boolean existsById(UUID id) {
-        return entityManager.find(UserEntity.class, id) != null;
+    public List<User> findAll() {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u", UserEntity.class);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
-    public long count() {
-        TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(u) FROM UserEntity u", Long.class);
-        return query.getSingleResult();
+    public List<User> findAll(int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u", UserEntity.class);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findByRole(UserRole role) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.role = :role", UserEntity.class);
+        query.setParameter("role", role);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findByStatus(UserStatus status) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.status = :status", UserEntity.class);
+        query.setParameter("status", status);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findByRoleAndStatus(UserRole role, UserStatus status) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.role = :role AND u.status = :status", UserEntity.class);
+        query.setParameter("role", role);
+        query.setParameter("status", status);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findByRolePaginated(UserRole role, int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.role = :role", UserEntity.class);
+        query.setParameter("role", role);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findByStatusPaginated(UserStatus status, int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.status = :status", UserEntity.class);
+        query.setParameter("status", status);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
     }
 
     @Override
@@ -195,26 +158,144 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
     }
 
     @Override
-    public List<User> findRecentRegistrations(LocalDateTime since) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.createdAt >= :since ORDER BY u.createdAt DESC", UserEntity.class);
-        query.setParameter("since", since);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
+    public long countAll() {
+        return count();
     }
 
     @Override
-    public List<User> findActiveUsers(LocalDateTime activeSince) {
-        TypedQuery<UserEntity> query = entityManager.createQuery(
-            "SELECT u FROM UserEntity u WHERE u.lastLoginAt >= :activeSince ORDER BY u.lastLoginAt DESC", UserEntity.class);
-        query.setParameter("activeSince", activeSince);
-        return query.getResultList().stream()
-            .map(this::toDomain)
-            .collect(Collectors.toList());
+    public long count() {
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(u) FROM UserEntity u", Long.class);
+        return query.getSingleResult();
     }
 
-    // Helper methods for Entity <-> Domain conversion
+    @Override
+    public Optional<UserProfile> findProfileByUserId(UUID userId) {
+        TypedQuery<UserProfileEntity> query = entityManager.createQuery(
+            "SELECT p FROM UserProfileEntity p WHERE p.userId = :userId", UserProfileEntity.class);
+        query.setParameter("userId", userId);
+        List<UserProfileEntity> results = query.getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(toProfileDomain(results.get(0)));
+    }
+
+    @Override
+    public Optional<UserPreferences> findPreferencesByUserId(UUID userId) {
+        TypedQuery<UserPreferencesEntity> query = entityManager.createQuery(
+            "SELECT p FROM UserPreferencesEntity p WHERE p.userId = :userId", UserPreferencesEntity.class);
+        query.setParameter("userId", userId);
+        List<UserPreferencesEntity> results = query.getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(toPreferencesDomain(results.get(0)));
+    }
+
+    @Override
+    public List<User> searchByNameOrEmail(String searchTerm) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE " +
+            "LOWER(u.email) LIKE LOWER(:search) OR " +
+            "EXISTS (SELECT p FROM UserProfileEntity p WHERE p.userId = u.id AND LOWER(p.fullName) LIKE LOWER(:search))",
+            UserEntity.class);
+        query.setParameter("search", "%" + searchTerm + "%");
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> search(String queryText, int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE " +
+            "LOWER(u.email) LIKE LOWER(:search) OR " +
+            "EXISTS (SELECT p FROM UserProfileEntity p WHERE p.userId = u.id AND LOWER(p.fullName) LIKE LOWER(:search))",
+            UserEntity.class);
+        query.setParameter("search", "%" + queryText + "%");
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findFollowersByUserId(UUID userId) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.id IN " +
+            "(SELECT f.followerId FROM UserFollowEntity f WHERE f.followingId = :userId)", UserEntity.class);
+        query.setParameter("userId", userId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findFollowingByUserId(UUID userId) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.id IN " +
+            "(SELECT f.followingId FROM UserFollowEntity f WHERE f.followerId = :userId)", UserEntity.class);
+        query.setParameter("userId", userId);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public long countFollowersByUserId(UUID userId) {
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(f) FROM UserFollowEntity f WHERE f.followingId = :userId", Long.class);
+        query.setParameter("userId", userId);
+        return query.getSingleResult();
+    }
+
+    @Override
+    public long countFollowingByUserId(UUID userId) {
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(f) FROM UserFollowEntity f WHERE f.followerId = :userId", Long.class);
+        query.setParameter("userId", userId);
+        return query.getSingleResult();
+    }
+
+    @Override
+    public boolean isFollowing(UUID followerId, UUID followingId) {
+        TypedQuery<Long> query = entityManager.createQuery(
+            "SELECT COUNT(f) FROM UserFollowEntity f WHERE f.followerId = :followerId AND f.followingId = :followingId",
+            Long.class);
+        query.setParameter("followerId", followerId);
+        query.setParameter("followingId", followingId);
+        return query.getSingleResult() > 0;
+    }
+
+    @Override
+    @Transactional
+    public void addFollow(UUID followerId, UUID followingId) {
+        com.travelplatform.infrastructure.persistence.entity.UserFollowEntity entity =
+            new com.travelplatform.infrastructure.persistence.entity.UserFollowEntity(
+                UUID.randomUUID(), followerId, followingId);
+        entityManager.persist(entity);
+    }
+
+    @Override
+    @Transactional
+    public void removeFollow(UUID followerId, UUID followingId) {
+        entityManager.createQuery(
+            "DELETE FROM UserFollowEntity f WHERE f.followerId = :followerId AND f.followingId = :followingId")
+            .setParameter("followerId", followerId)
+            .setParameter("followingId", followingId)
+            .executeUpdate();
+    }
+
+    @Override
+    public List<User> findFollowers(UUID userId, int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.id IN " +
+            "(SELECT f.followerId FROM UserFollowEntity f WHERE f.followingId = :userId)", UserEntity.class);
+        query.setParameter("userId", userId);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<User> findFollowing(UUID userId, int page, int pageSize) {
+        TypedQuery<UserEntity> query = entityManager.createQuery(
+            "SELECT u FROM UserEntity u WHERE u.id IN " +
+            "(SELECT f.followingId FROM UserFollowEntity f WHERE f.followerId = :userId)", UserEntity.class);
+        query.setParameter("userId", userId);
+        query.setFirstResult(page * pageSize);
+        query.setMaxResults(pageSize);
+        return query.getResultList().stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
     private User toDomain(UserEntity entity) {
         return new User(
             entity.getId(),
@@ -222,7 +303,7 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
             entity.getPasswordHash(),
             entity.getRole(),
             entity.getStatus(),
-            entity.getEmailVerified(),
+            entity.isEmailVerified(),
             entity.getCreatedAt(),
             entity.getUpdatedAt(),
             entity.getLastLoginAt()
@@ -241,5 +322,56 @@ public class JpaUserRepository implements UserRepository, PanacheRepository<User
         entity.setUpdatedAt(domain.getUpdatedAt());
         entity.setLastLoginAt(domain.getLastLoginAt());
         return entity;
+    }
+
+    private UserProfile toProfileDomain(UserProfileEntity entity) {
+        com.travelplatform.domain.model.user.DrivingLicenseCategory dlc = null;
+        if (entity.getDrivingLicenseCategory() != null && !entity.getDrivingLicenseCategory().isBlank()) {
+            dlc = com.travelplatform.domain.model.user.DrivingLicenseCategory.valueOf(entity.getDrivingLicenseCategory());
+        }
+        com.travelplatform.domain.model.user.WorkStatus occupation = null;
+        if (entity.getOccupation() != null && !entity.getOccupation().isBlank()) {
+            occupation = com.travelplatform.domain.model.user.WorkStatus.valueOf(entity.getOccupation());
+        }
+        return new UserProfile(
+            entity.getId(),
+            entity.getUserId(),
+            entity.getFullName(),
+            entity.getPhotoUrl(),
+            entity.getBirthDate(),
+            entity.getGender(),
+            entity.getBio(),
+            entity.getLocation(),
+            entity.getPhoneNumber(),
+            dlc,
+            occupation,
+            entity.getCreatedAt(),
+            entity.getUpdatedAt()
+        );
+    }
+
+    private UserPreferences toPreferencesDomain(UserPreferencesEntity entity) {
+        UserPreferences.BudgetRange budgetRange = null;
+        if (entity.getBudgetRange() != null && !entity.getBudgetRange().isBlank()) {
+            budgetRange = UserPreferences.BudgetRange.valueOf(entity.getBudgetRange());
+        }
+        UserPreferences.TravelStyle travelStyle = null;
+        if (entity.getTravelStyle() != null && !entity.getTravelStyle().isBlank()) {
+            travelStyle = UserPreferences.TravelStyle.valueOf(entity.getTravelStyle());
+        }
+        return new UserPreferences(
+            entity.getId(),
+            entity.getUserId(),
+            entity.getPreferredDestinations(),
+            budgetRange,
+            travelStyle,
+            entity.getInterests(),
+            entity.isEmailNotifications(),
+            entity.isPushNotifications(),
+            entity.isSmsNotifications(),
+            entity.getNotificationTypes(),
+            entity.getCreatedAt(),
+            entity.getUpdatedAt()
+        );
     }
 }

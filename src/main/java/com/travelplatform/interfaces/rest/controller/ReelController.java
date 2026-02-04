@@ -6,6 +6,9 @@ import com.travelplatform.application.dto.response.common.PageResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.dto.response.reel.ReelResponse;
 import com.travelplatform.application.service.reel.ReelService;
+import com.travelplatform.domain.enums.VisibilityScope;
+import com.travelplatform.domain.model.reel.ReelComment;
+import com.travelplatform.domain.model.reel.ReelReport;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.annotation.security.PermitAll;
@@ -65,12 +68,13 @@ public class ReelController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get personalized feed request for user: {}", userId);
 
-            PageResponse<ReelResponse> feed = reelService.getPersonalizedFeed(
-                    UUID.fromString(userId), page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> feed = reelService.getReelFeed(
+                    UUID.fromString(userId), pageIndex, pageSize);
+            PageResponse<ReelResponse> response =
+                    toPageResponse(feed, page, pageSize, feed.size());
 
-            return Response.ok()
-                    .entity(feed)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting personalized feed", e);
@@ -100,11 +104,12 @@ public class ReelController {
         try {
             log.info("Get trending reels request");
 
-            PageResponse<ReelResponse> trending = reelService.getTrendingReels(page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> trending = reelService.getTrendingReels(pageIndex, pageSize);
+            PageResponse<ReelResponse> response =
+                    toPageResponse(trending, page, pageSize, trending.size());
 
-            return Response.ok()
-                    .entity(trending)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting trending reels", e);
@@ -177,12 +182,13 @@ public class ReelController {
         try {
             log.info("Get reels by location request - lat: {}, lng: {}, radius: {}km", latitude, longitude, radiusKm);
 
-            PageResponse<ReelResponse> reels = reelService.getReelsByLocation(
-                    latitude, longitude, radiusKm, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> reels = reelService.getReelsByLocation(
+                    latitude, longitude, radiusKm, pageIndex, pageSize);
+            PageResponse<ReelResponse> response =
+                    toPageResponse(reels, page, pageSize, reels.size());
 
-            return Response.ok()
-                    .entity(reels)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting reels by location", e);
@@ -215,11 +221,12 @@ public class ReelController {
         try {
             log.info("Get user reels request for user: {}", userId);
 
-            PageResponse<ReelResponse> reels = reelService.getReelsByCreator(userId, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> reels = reelService.getReelsByCreator(userId, pageIndex, pageSize);
+            PageResponse<ReelResponse> response =
+                    toPageResponse(reels, page, pageSize, reels.size());
 
-            return Response.ok()
-                    .entity(reels)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting user reels", e);
@@ -295,7 +302,16 @@ public class ReelController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Update reel request: {} by user: {}", reelId, userId);
 
-            ReelResponse reel = reelService.updateReel(UUID.fromString(userId), reelId, request);
+            VisibilityScope visibility = request.getVisibility() != null
+                    ? VisibilityScope.valueOf(request.getVisibility())
+                    : null;
+
+            ReelResponse reel = reelService.updateReel(
+                    UUID.fromString(userId),
+                    reelId,
+                    request.getTitle(),
+                    request.getDescription(),
+                    visibility);
 
             return Response.ok()
                     .entity(new SuccessResponse<>(reel, "Reel updated successfully"))
@@ -601,12 +617,13 @@ public class ReelController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get bookmarked reels request for user: {}", userId);
 
-            PageResponse<ReelResponse> reels = reelService.getBookmarkedReels(
-                    UUID.fromString(userId), page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelResponse> reels = reelService.getBookmarkedReels(
+                    UUID.fromString(userId), pageIndex, pageSize);
+            PageResponse<ReelResponse> response =
+                    toPageResponse(reels, page, pageSize, reels.size());
 
-            return Response.ok()
-                    .entity(reels)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting bookmarked reels", e);
@@ -686,11 +703,13 @@ public class ReelController {
         try {
             log.info("Get comments request for reel: {}", reelId);
 
-            var comments = reelService.getComments(reelId, page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelComment> comments =
+                    reelService.getComments(reelId, pageIndex, pageSize);
+            PageResponse<ReelComment> response =
+                    toPageResponse(comments, page, pageSize, comments.size());
 
-            return Response.ok()
-                    .entity(comments)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting comments", e);
@@ -771,11 +790,13 @@ public class ReelController {
             String userId = securityContext.getUserPrincipal().getName();
             log.info("Get my reports request for user: {}", userId);
 
-            var reports = reelService.getUserReports(UUID.fromString(userId), page, pageSize);
+            int pageIndex = toPageIndex(page);
+            List<ReelReport> reports =
+                    reelService.getUserReports(UUID.fromString(userId), pageIndex, pageSize);
+            PageResponse<ReelReport> response =
+                    toPageResponse(reports, page, pageSize, reports.size());
 
-            return Response.ok()
-                    .entity(reports)
-                    .build();
+            return Response.ok().entity(response).build();
 
         } catch (Exception e) {
             log.error("Unexpected error getting my reports", e);
@@ -783,5 +804,19 @@ public class ReelController {
                     .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
                     .build();
         }
+    }
+
+    private int toPageIndex(int page) {
+        return Math.max(page - 1, 0);
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> data, int page, int pageSize, long totalItems) {
+        int safePage = Math.max(page, 1);
+        int safePageSize = Math.max(pageSize, 1);
+        PageResponse.PaginationInfo pagination = new PageResponse.PaginationInfo(
+                safePage,
+                safePageSize,
+                totalItems);
+        return new PageResponse<>(data, pagination);
     }
 }
