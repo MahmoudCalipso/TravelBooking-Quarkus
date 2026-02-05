@@ -4,9 +4,9 @@ import com.travelplatform.application.dto.response.chat.MessageResponse;
 import com.travelplatform.domain.model.chat.ChatMessage;
 import com.travelplatform.domain.model.chat.DirectMessage;
 import org.mapstruct.Mapper;
-import org.mapstruct.Named;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Mapper for Chat domain entities and DTOs.
@@ -14,86 +14,57 @@ import java.util.UUID;
 @Mapper(componentModel = "cdi")
 public interface ChatMapper {
 
-    // ChatMessage to Response DTO
-    MessageResponse toMessageResponse(ChatMessage chatMessage);
+    default MessageResponse toMessageResponse(ChatMessage chatMessage) {
+        if (chatMessage == null) {
+            return null;
+        }
+        MessageResponse response = new MessageResponse();
+        response.setId(chatMessage.getId());
+        response.setSenderId(chatMessage.getSenderId());
+        response.setSenderName(null);
+        response.setSenderPhotoUrl(null);
+        response.setMessage(chatMessage.getMessage());
+        response.setMessageType(chatMessage.getMessageType() != null ? chatMessage.getMessageType().name() : null);
+        response.setAttachmentUrl(chatMessage.getAttachmentUrl());
+        response.setCreatedAt(chatMessage.getCreatedAt());
+        return response;
+    }
 
-    // DirectMessage to Response DTO
-    MessageResponse toMessageResponse(DirectMessage directMessage);
+    default MessageResponse toMessageResponse(DirectMessage directMessage) {
+        if (directMessage == null) {
+            return null;
+        }
+        MessageResponse response = new MessageResponse();
+        response.setId(directMessage.getId());
+        response.setSenderId(directMessage.getSenderId());
+        response.setSenderName(null);
+        response.setSenderPhotoUrl(null);
+        response.setMessage(directMessage.getMessage());
+        response.setMessageType("DIRECT");
+        response.setAttachmentUrl(directMessage.getAttachmentUrl());
+        response.setCreatedAt(directMessage.getCreatedAt());
+        return response;
+    }
 
-    java.util.List<MessageResponse> toMessageResponseList(java.util.List<ChatMessage> chatMessages);
+    default List<MessageResponse> toMessageResponseList(List<ChatMessage> chatMessages) {
+        if (chatMessages == null) {
+            return null;
+        }
+        List<MessageResponse> responses = new ArrayList<>(chatMessages.size());
+        for (ChatMessage message : chatMessages) {
+            responses.add(toMessageResponse(message));
+        }
+        return responses;
+    }
 
-    default java.util.List<MessageResponse> toDirectMessageResponseList(java.util.List<DirectMessage> directMessages) {
+    default List<MessageResponse> toDirectMessageResponseList(List<DirectMessage> directMessages) {
         if (directMessages == null) {
             return null;
         }
-
-        java.util.List<MessageResponse> list = new java.util.ArrayList<MessageResponse>(directMessages.size());
+        List<MessageResponse> responses = new ArrayList<>(directMessages.size());
         for (DirectMessage directMessage : directMessages) {
-            list.add(toMessageResponse(directMessage));
+            responses.add(toMessageResponse(directMessage));
         }
-
-        return list;
-    }
-
-    @Named("senderId")
-    default UUID mapSenderId(ChatMessage chatMessage) {
-        return chatMessage != null ? chatMessage.getSenderId() : null;
-    }
-
-    @Named("senderId")
-    default UUID mapSenderId(DirectMessage directMessage) {
-        return directMessage != null ? directMessage.getSenderId() : null;
-    }
-
-    @Named("senderName")
-    default String mapSenderName(ChatMessage chatMessage) {
-        // TODO: Fix domain model navigation or fetch external data. Entity only has
-        // senderId.
-        return null;
-        /*
-         * return chatMessage != null && chatMessage.getSender() != null &&
-         * chatMessage.getSender().getProfile() != null
-         * ? chatMessage.getSender().getProfile().getFullName()
-         * : null;
-         */
-    }
-
-    @Named("senderName")
-    default String mapSenderName(DirectMessage directMessage) {
-        // TODO: Fix domain model navigation or fetch external data. Entity only has
-        // senderId.
-        return null;
-        /*
-         * return directMessage != null && directMessage.getSender() != null &&
-         * directMessage.getSender().getProfile() != null
-         * ? directMessage.getSender().getProfile().getFullName()
-         * : null;
-         */
-    }
-
-    @Named("senderPhotoUrl")
-    default String mapSenderPhotoUrl(ChatMessage chatMessage) {
-        // TODO: Fix domain model navigation or fetch external data. Entity only has
-        // senderId.
-        return null;
-        /*
-         * return chatMessage != null && chatMessage.getSender() != null &&
-         * chatMessage.getSender().getProfile() != null
-         * ? chatMessage.getSender().getProfile().getPhotoUrl()
-         * : null;
-         */
-    }
-
-    @Named("senderPhotoUrl")
-    default String mapSenderPhotoUrl(DirectMessage directMessage) {
-        // TODO: Fix domain model navigation or fetch external data. Entity only has
-        // senderId.
-        return null;
-        /*
-         * return directMessage != null && directMessage.getSender() != null &&
-         * directMessage.getSender().getProfile() != null
-         * ? directMessage.getSender().getProfile().getPhotoUrl()
-         * : null;
-         */
+        return responses;
     }
 }

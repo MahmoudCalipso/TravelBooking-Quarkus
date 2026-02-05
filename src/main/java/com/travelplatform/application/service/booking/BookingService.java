@@ -136,7 +136,7 @@ public class BookingService {
         BookingPayment payment = new BookingPayment(
                 booking.getId(),
                 totalPrice,
-                accommodation.getCurrency() != null ? accommodation.getCurrency().getCurrencyCode() : "USD",
+                accommodation.getCurrency() != null ? accommodation.getCurrency() : "USD",
                 BookingPayment.PaymentMethod.CARD, // Default payment method
                 "STRIPE" // Default payment provider
         );

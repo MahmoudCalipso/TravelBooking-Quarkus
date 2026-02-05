@@ -93,7 +93,7 @@ public interface AccommodationMapper {
         response.setLatitude(locationToLatitude(accommodation.getLocation()));
         response.setLongitude(locationToLongitude(accommodation.getLocation()));
         response.setBasePrice(moneyToBigDecimal(accommodation.getBasePrice()));
-        response.setCurrency(accommodation.getBasePrice() != null ? accommodation.getBasePrice().getCurrency().getCurrencyCode() : "USD");
+        response.setCurrency(accommodation.getBasePrice() != null ? accommodation.getBasePrice().getCurrencyCode() : "USD");
         response.setMaxGuests(accommodation.getMaxGuests());
         response.setBedrooms(accommodation.getBedrooms());
         response.setBeds(accommodation.getBeds());
