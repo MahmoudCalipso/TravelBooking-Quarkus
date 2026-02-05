@@ -1,6 +1,10 @@
 package com.travelplatform.interfaces.rest.filter;
 
+import io.quarkus.redis.datasource.RedisDataSource;
+import io.quarkus.redis.datasource.keys.KeyCommands;
+import io.quarkus.redis.datasource.value.ValueCommands;
 import jakarta.annotation.Priority;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Priorities;
@@ -8,6 +12,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,11 +45,33 @@ public class RateLimitFilter implements ContainerRequestFilter {
     private static final Duration API_WINDOW = Duration.ofHours(1);
     private static final Duration COMMENT_WINDOW = Duration.ofHours(1);
 
+    @Inject
+    RedisDataSource redisDataSource;
+
+    @Inject
+    @ConfigProperty(name = "rate-limit.use-redis", defaultValue = "false")
+    boolean useRedis;
+
+    @Inject
+    @ConfigProperty(name = "rate-limit.redis-prefix", defaultValue = "rate:limit")
+    String redisPrefix;
+
+    private ValueCommands<String, Long> redisCounters;
+    private KeyCommands<String> redisKeys;
+
     // In-memory rate limit tracking (in production, use Redis)
     private final Map<String, RateLimitEntry> authRateLimits = new ConcurrentHashMap<>();
     private final Map<String, RateLimitEntry> fileUploadRateLimits = new ConcurrentHashMap<>();
     private final Map<String, RateLimitEntry> apiRateLimits = new ConcurrentHashMap<>();
     private final Map<String, RateLimitEntry> commentRateLimits = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    void init() {
+        if (redisDataSource != null) {
+            redisCounters = redisDataSource.value(Long.class);
+            redisKeys = redisDataSource.key();
+        }
+    }
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
@@ -57,16 +84,16 @@ public class RateLimitFilter implements ContainerRequestFilter {
         // Check rate limits based on endpoint type
         if (isAuthEndpoint(path)) {
             checkRateLimit(clientIp, authRateLimits, AUTH_REQUESTS_PER_15_MINUTES, AUTH_WINDOW, 
-                    "Too many authentication attempts. Please try again later.");
+                    "Too many authentication attempts. Please try again later.", "auth");
         } else if (isFileUploadEndpoint(path)) {
             checkRateLimit(clientIp, fileUploadRateLimits, FILE_UPLOADS_PER_HOUR, FILE_UPLOAD_WINDOW,
-                    "Too many file uploads. Please try again later.");
+                    "Too many file uploads. Please try again later.", "upload");
         } else if (isCommentEndpoint(path)) {
             checkRateLimit(clientIp, commentRateLimits, COMMENTS_PER_HOUR, COMMENT_WINDOW,
-                    "Too many comments. Please slow down.");
+                    "Too many comments. Please slow down.", "comment");
         } else {
             checkRateLimit(clientIp, apiRateLimits, API_REQUESTS_PER_HOUR, API_WINDOW,
-                    "Too many requests. Please try again later.");
+                    "Too many requests. Please try again later.", "api");
         }
     }
 
@@ -80,7 +107,12 @@ public class RateLimitFilter implements ContainerRequestFilter {
      * @param errorMessage The error message to return
      */
     private void checkRateLimit(String clientIp, Map<String, RateLimitEntry> rateLimitMap,
-                                 int maxRequests, Duration window, String errorMessage) {
+                                 int maxRequests, Duration window, String errorMessage, String bucket) {
+        if (useRedis && redisCounters != null) {
+            applyRedisRateLimit(clientIp, rateLimitMap, maxRequests, window, errorMessage, bucket);
+            return;
+        }
+
         RateLimitEntry entry = rateLimitMap.computeIfAbsent(clientIp, k -> new RateLimitEntry());
 
         Instant now = Instant.now();
@@ -178,6 +210,26 @@ public class RateLimitFilter implements ContainerRequestFilter {
                 count.set(0);
                 windowStart = now;
             }
+        }
+    }
+
+    private void applyRedisRateLimit(String clientIp, Map<String, RateLimitEntry> fallbackMap,
+                                     int maxRequests, Duration window, String errorMessage, String bucket) {
+        try {
+            String key = String.format("%s:%s:%s", redisPrefix, bucket, clientIp);
+            long current = redisCounters.incr(key);
+            if (current == 1) {
+                redisKeys.expire(key, window);
+            }
+            if (current > maxRequests) {
+                log.warn("Rate limit exceeded (redis) for IP: {}, bucket: {}", clientIp, bucket);
+                throw new RateLimitExceededException(errorMessage);
+            }
+            log.debug("Redis rate limit for IP {} bucket {}: {}/{}", clientIp, bucket, current, maxRequests);
+        } catch (Exception e) {
+            log.error("Redis rate limit check failed, falling back to in-memory for {}", clientIp, e);
+            useRedis = false;
+            checkRateLimit(clientIp, fallbackMap, maxRequests, window, errorMessage, bucket);
         }
     }
 

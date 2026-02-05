@@ -1,12 +1,23 @@
 package com.travelplatform.infrastructure.notification;
 
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.messaging.BatchResponse;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MulticastMessage;
+import com.google.firebase.messaging.Notification;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Push notification service for sending real-time notifications to mobile devices.
@@ -24,6 +35,11 @@ public class PushNotificationService {
     @Inject
     @ConfigProperty(name = "fcm.enabled")
     private boolean fcmEnabled;
+
+    @Inject
+    FirebaseApp firebaseApp;
+
+    private final Map<UUID, List<String>> userDeviceTokens = new ConcurrentHashMap<>();
 
     /**
      * Send a push notification to a single device.
@@ -309,47 +325,122 @@ public class PushNotificationService {
     }
 
     /**
+     * Register a device token for a user to enable user-targeted notifications.
+     */
+    public void registerDeviceToken(UUID userId, String deviceToken) {
+        userDeviceTokens.compute(userId, (id, tokens) -> {
+            if (tokens == null) {
+                tokens = new ArrayList<>();
+            }
+            if (!tokens.contains(deviceToken)) {
+                tokens.add(deviceToken);
+            }
+            return tokens;
+        });
+    }
+
+    /**
+     * Remove a device token (e.g., on logout).
+     */
+    public void unregisterDeviceToken(UUID userId, String deviceToken) {
+        userDeviceTokens.computeIfPresent(userId, (id, tokens) -> {
+            tokens.remove(deviceToken);
+            return tokens.isEmpty() ? null : tokens;
+        });
+    }
+
+    /**
+     * Send a push notification by user id (all registered devices).
+     */
+    public boolean sendPushNotification(UUID userId, String title, String message) {
+        List<String> tokens = userDeviceTokens.getOrDefault(userId, List.of());
+        if (tokens.isEmpty()) {
+            log.warn("No registered device tokens for user {}. Skipping push notification.", userId);
+            return false;
+        }
+        return sendPushNotificationToMultiple(tokens, title, message, Map.of("userId", userId.toString()));
+    }
+
+    /**
+     * Send a message to an FCM topic.
+     */
+    public boolean sendToTopic(String topic, String message) {
+        if (!fcmEnabled) {
+            log.warn("FCM service is disabled. Skipping topic notification to: {}", topic);
+            return false;
+        }
+        try {
+            Message fcmMessage = Message.builder()
+                    .setTopic(topic)
+                    .setNotification(Notification.builder().setTitle(topic).setBody(message).build())
+                    .build();
+            String responseId = FirebaseMessaging.getInstance(firebaseApp).send(fcmMessage);
+            log.info("Topic notification sent to {} with response {}", topic, responseId);
+            return true;
+        } catch (FirebaseMessagingException e) {
+            log.error("Failed to send topic notification to {}: {}", topic, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
      * Send a push notification to FCM.
-     * This is a placeholder implementation.
-     * In production, integrate with Firebase Admin SDK.
      */
     private boolean sendToFcm(String deviceToken, String title, String body, Map<String, Object> data) {
-        // TODO: Integrate with Firebase Admin SDK
-        // FirebaseOptions options = FirebaseOptions.builder()
-        //         .setCredentials(GoogleCredentials.fromStream(new FileInputStream("service-account.json")))
-        //         .build();
-        // FirebaseApp.initializeApp(options);
-        // FirebaseMessaging.getInstance().send(Message.builder()
-        //         .setToken(deviceToken)
-        //         .setNotification(Notification.builder()
-        //                 .setTitle(title)
-        //                 .setBody(body)
-        //                 .build())
-        //         .putAllData(data)
-        //         .build());
+        try {
+            Message.Builder builder = Message.builder()
+                    .setToken(deviceToken);
 
-        log.info("Push notification sent successfully to device: {} (placeholder implementation)", deviceToken);
-        return true;
+            if ((title != null && !title.isEmpty()) || (body != null && !body.isEmpty())) {
+                builder.setNotification(Notification.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .build());
+            }
+
+            if (data != null) {
+                data.forEach((k, v) -> builder.putData(k, v != null ? String.valueOf(v) : ""));
+            }
+
+            String responseId = FirebaseMessaging.getInstance(firebaseApp).send(builder.build());
+            log.info("Push notification sent successfully to device: {} (response id {})", deviceToken, responseId);
+            return true;
+        } catch (FirebaseMessagingException e) {
+            log.error("Failed to send push notification to device: {}", deviceToken, e);
+            return false;
+        }
     }
 
     /**
      * Send a multicast push notification to multiple devices via FCM.
-     * This is a placeholder implementation.
      */
     private boolean sendMulticastToFcm(java.util.List<String> deviceTokens, String title, String body, Map<String, Object> data) {
-        // TODO: Integrate with Firebase Admin SDK for multicast
-        // MulticastMessage message = MulticastMessage.builder()
-        //         .addAllTokens(deviceTokens)
-        //         .setNotification(Notification.builder()
-        //                 .setTitle(title)
-        //                 .setBody(body)
-        //                 .build())
-        //         .putAllData(data)
-        //         .build();
-        // BatchResponse response = FirebaseMessaging.getInstance().sendMulticast(message);
+        try {
+            MulticastMessage.Builder builder = MulticastMessage.builder()
+                    .addAllTokens(deviceTokens);
 
-        log.info("Push notification sent successfully to {} devices (placeholder implementation)", deviceTokens.size());
-        return true;
+            if ((title != null && !title.isEmpty()) || (body != null && !body.isEmpty())) {
+                builder.setNotification(Notification.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .build());
+            }
+            if (data != null) {
+                data.forEach((k, v) -> builder.putData(k, v != null ? String.valueOf(v) : ""));
+            }
+
+            BatchResponse response = FirebaseMessaging.getInstance(firebaseApp).sendMulticast(builder.build());
+            if (response.getFailureCount() > 0) {
+                log.warn("Push notification partially failed: {} failures out of {}", response.getFailureCount(),
+                        deviceTokens.size());
+            } else {
+                log.info("Push notification sent successfully to {} devices", deviceTokens.size());
+            }
+            return response.getFailureCount() == 0;
+        } catch (FirebaseMessagingException e) {
+            log.error("Failed to send multicast push notification", e);
+            return false;
+        }
     }
 
     /**

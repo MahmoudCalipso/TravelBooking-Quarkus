@@ -1,12 +1,30 @@
 package com.travelplatform.infrastructure.notification;
 
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
+import com.sendgrid.helpers.mail.objects.Personalization;
+import com.travelplatform.domain.model.booking.Booking;
+import com.travelplatform.domain.model.reel.TravelReel;
+import com.travelplatform.domain.model.user.User;
+import com.travelplatform.domain.model.user.UserProfile;
+import com.travelplatform.domain.repository.UserRepository;
+import com.travelplatform.domain.valueobject.Money;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Email service for sending transactional and marketing emails.
@@ -16,6 +34,7 @@ import java.util.Map;
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     @Inject
     @ConfigProperty(name = "email.from.address")
@@ -32,6 +51,13 @@ public class EmailService {
     @Inject
     @ConfigProperty(name = "email.enabled")
     private boolean emailEnabled;
+
+    @Inject
+    @ConfigProperty(name = "app.frontend.url", defaultValue = "http://localhost:3000")
+    String frontendUrl;
+
+    @Inject
+    UserRepository userRepository;
 
     /**
      * Send a welcome email to a new user.
@@ -294,44 +320,140 @@ public class EmailService {
      */
     public boolean sendCustomEmail(String toEmail, String toName, String subject,
                                 String htmlContent, String textContent) {
-        if (!emailEnabled) {
-            log.warn("Email service is disabled. Skipping custom email to: {}", toEmail);
+        return sendEmail(toEmail, toName, subject, htmlContent, textContent);
+    }
+
+    /**
+     * Send a booking confirmation using a domain Booking object.
+     */
+    public boolean sendBookingConfirmation(Booking booking) {
+        Recipient recipient = resolveUserRecipient(booking.getUserId());
+        if (recipient == null) {
+            log.warn("Unable to resolve recipient for booking confirmation. UserId={}", booking.getUserId());
             return false;
         }
+        String totalAmount = formatMoney(booking.getTotalPrice());
+        return sendBookingConfirmation(
+                recipient.email(),
+                recipient.name(),
+                booking.getId().toString(),
+                booking.getAccommodationId().toString(),
+                DATE_FORMATTER.format(booking.getCheckInDate()),
+                DATE_FORMATTER.format(booking.getCheckOutDate()),
+                totalAmount
+        );
+    }
 
-        log.info("Sending custom email to: {}", toEmail);
+    /**
+     * Send a password reset email using a reset token.
+     */
+    public boolean sendPasswordReset(String email, String resetToken) {
+        String resetUrl = String.format("%s/reset-password?token=%s", frontendUrl, resetToken);
+        return sendPasswordReset(email, email, resetUrl);
+    }
 
-        try {
-            return sendEmail(toEmail, toName, subject, htmlContent, textContent);
-
-        } catch (Exception e) {
-            log.error("Failed to send custom email to: {}", toEmail, e);
+    /**
+     * Notify a creator about reel approval/rejection.
+     */
+    public boolean sendReelApprovalNotification(TravelReel reel, boolean approved) {
+        Recipient recipient = resolveUserRecipient(reel.getCreatorId());
+        if (recipient == null) {
+            log.warn("Unable to resolve recipient for reel notification. UserId={}", reel.getCreatorId());
             return false;
         }
+        String subject = approved ? "Your reel is approved" : "Your reel was rejected";
+        String statusText = approved ? "approved and is now live!" : "rejected. Please review and resubmit.";
+        String html = """
+                <p>Hello %s,</p>
+                <p>Your travel reel <strong>%s</strong> has been %s</p>
+                <p>Thanks for contributing to our community.</p>
+                """.formatted(recipient.name(), reel.getTitle() != null ? reel.getTitle() : "your reel", statusText);
+        String text = """
+                Hello %s,
+                Your travel reel %s has been %s.
+                """.formatted(recipient.name(), reel.getTitle() != null ? reel.getTitle() : "your reel", statusText);
+        return sendEmail(recipient.email(), recipient.name(), subject, html, text);
     }
 
     /**
      * Send an email using SendGrid API.
-     * This is a placeholder implementation.
-     * In production, integrate with SendGrid Java SDK.
      */
     private boolean sendEmail(String toEmail, String toName, String subject,
                            String htmlContent, String textContent) {
-        // TODO: Integrate with SendGrid Java SDK
-        // SendGrid sg = new SendGrid(sendGridApiKey);
-        // SendGrid.Email from = new SendGrid.Email(fromAddress, fromName);
-        // SendGrid.Email to = new SendGrid.Email(toEmail, toName);
-        // Content content = new Content("text/html", htmlContent);
-        // Mail mail = new Mail(from, subject, to, content);
-        // SendGrid sg = new SendGrid(sendGridApiKey);
-        // Request request = new Request();
-        // request.setEndpoint("mail/send");
-        // request.setMail(mail);
-        // Response response = sg.api(request);
-        // return response.getStatusCode() == 202;
+        if (!emailEnabled) {
+            log.warn("Email service is disabled. Skipping email to: {}", toEmail);
+            return false;
+        }
+        if (!hasSendGridConfiguration()) {
+            log.error("SendGrid API key or sender address not configured. Cannot send email to {}", toEmail);
+            return false;
+        }
 
-        log.info("Email sent successfully to: {} (placeholder implementation)", toEmail);
-        return true;
+        try {
+            Mail mail = new Mail();
+            mail.setFrom(new Email(fromAddress, fromName));
+            mail.setSubject(subject);
+
+            Personalization personalization = new Personalization();
+            personalization.addTo(new Email(toEmail, toName));
+            mail.addPersonalization(personalization);
+
+            if (textContent != null && !textContent.isEmpty()) {
+                mail.addContent(new Content("text/plain", textContent));
+            }
+            String htmlBody = htmlContent != null && !htmlContent.isEmpty()
+                    ? htmlContent
+                    : textContent != null ? textContent.replace("\n", "<br/>") : "";
+            if (!htmlBody.isEmpty()) {
+                mail.addContent(new Content("text/html", htmlBody));
+            }
+
+            SendGrid sg = new SendGrid(sendGridApiKey);
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            Response response = sg.api(request);
+            boolean success = response.getStatusCode() >= 200 && response.getStatusCode() < 300;
+
+            if (!success) {
+                log.error("SendGrid responded with status {} for recipient {}. Body: {}", response.getStatusCode(),
+                        toEmail, response.getBody());
+            } else {
+                log.info("Email sent successfully to: {} via SendGrid (status {})", toEmail, response.getStatusCode());
+            }
+            return success;
+
+        } catch (IOException e) {
+            log.error("SendGrid request failed for recipient {}", toEmail, e);
+            return false;
+        } catch (Exception e) {
+            log.error("Unexpected error while sending email to {}", toEmail, e);
+            return false;
+        }
+    }
+
+    private boolean hasSendGridConfiguration() {
+        return sendGridApiKey != null && !sendGridApiKey.isBlank()
+                && fromAddress != null && !fromAddress.isBlank();
+    }
+
+    private Recipient resolveUserRecipient(UUID userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return null;
+        }
+        User user = userOpt.get();
+        Optional<UserProfile> profileOpt = userRepository.findProfileByUserId(userId);
+        String name = profileOpt.map(UserProfile::getFullName).filter(s -> !s.isBlank()).orElse(user.getEmail());
+        return new Recipient(user.getEmail(), name);
+    }
+
+    private String formatMoney(Money money) {
+        return money != null ? money.getCurrencyCode() + " " + money.getAmount() : "";
+    }
+
+    private record Recipient(String email, String name) {
     }
 
     // Email content builders

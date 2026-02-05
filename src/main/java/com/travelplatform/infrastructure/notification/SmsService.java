@@ -1,10 +1,21 @@
 package com.travelplatform.infrastructure.notification;
 
+import com.travelplatform.domain.model.booking.Booking;
+import com.travelplatform.domain.model.user.UserProfile;
+import com.travelplatform.domain.repository.UserRepository;
+import com.twilio.Twilio;
+import com.twilio.exception.ApiException;
+import com.twilio.rest.api.v2010.account.Message;
+import com.twilio.type.PhoneNumber;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * SMS service for sending SMS notifications.
@@ -14,6 +25,7 @@ import org.slf4j.LoggerFactory;
 public class SmsService {
 
     private static final Logger log = LoggerFactory.getLogger(SmsService.class);
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     @Inject
     @ConfigProperty(name = "twilio.account.sid")
@@ -31,6 +43,13 @@ public class SmsService {
     @ConfigProperty(name = "sms.enabled")
     private boolean smsEnabled;
 
+    @Inject
+    @ConfigProperty(name = "sms.default.verification.expiry-minutes", defaultValue = "10")
+    int defaultVerificationExpiryMinutes;
+
+    @Inject
+    UserRepository userRepository;
+
     /**
      * Send an SMS message to a single phone number.
      *
@@ -41,6 +60,10 @@ public class SmsService {
     public boolean sendSms(String toPhoneNumber, String message) {
         if (!smsEnabled) {
             log.warn("SMS service is disabled. Skipping SMS to: {}", toPhoneNumber);
+            return false;
+        }
+        if (!hasTwilioConfiguration()) {
+            log.error("Twilio credentials or sender phone are missing. Cannot send SMS to {}", toPhoneNumber);
             return false;
         }
 
@@ -70,6 +93,10 @@ public class SmsService {
         return sendSms(toPhoneNumber, message);
     }
 
+    public boolean sendVerificationCode(String toPhoneNumber, String verificationCode) {
+        return sendVerificationCode(toPhoneNumber, verificationCode, defaultVerificationExpiryMinutes);
+    }
+
     /**
      * Send a booking confirmation SMS.
      *
@@ -86,6 +113,23 @@ public class SmsService {
                       ". We look forward to hosting you!";
         
         return sendSms(toPhoneNumber, message);
+    }
+
+    /**
+     * Send a booking reminder 24h before check-in.
+     *
+     * @param booking booking domain object
+     * @return true if SMS was queued successfully, false otherwise
+     */
+    public boolean sendBookingReminder(Booking booking) {
+        Recipient recipient = resolveRecipientFromUser(booking.getUserId());
+        if (recipient == null) {
+            log.warn("Skipping booking reminder because no phone is available for user {}", booking.getUserId());
+            return false;
+        }
+        String message = "Reminder: your stay starts on " + DATE_FORMATTER.format(booking.getCheckInDate()) +
+                ". Booking ID " + booking.getId() + ". We look forward to welcoming you.";
+        return sendSms(recipient.phone(), message);
     }
 
     /**
@@ -175,20 +219,7 @@ public class SmsService {
      * @return true if SMS was sent successfully, false otherwise
      */
     public boolean sendCustomSms(String toPhoneNumber, String message) {
-        if (!smsEnabled) {
-            log.warn("SMS service is disabled. Skipping custom SMS to: {}", toPhoneNumber);
-            return false;
-        }
-
-        log.info("Sending custom SMS to: {}", toPhoneNumber);
-
-        try {
-            return sendToTwilio(toPhoneNumber, message);
-
-        } catch (Exception e) {
-            log.error("Failed to send custom SMS to: {}", toPhoneNumber, e);
-            return false;
-        }
+        return sendSms(toPhoneNumber, message);
     }
 
     /**
@@ -201,6 +232,12 @@ public class SmsService {
     public boolean sendBulkSms(java.util.List<String> toPhoneNumbers, String message) {
         if (!smsEnabled) {
             log.warn("SMS service is disabled. Skipping bulk SMS to {} numbers", toPhoneNumbers.size());
+            return false;
+        }
+
+        if (!hasTwilioConfiguration()) {
+            log.error("Twilio credentials or sender phone are missing. Cannot send bulk SMS to {} recipients",
+                    toPhoneNumbers.size());
             return false;
         }
 
@@ -217,36 +254,35 @@ public class SmsService {
 
     /**
      * Send an SMS using Twilio API.
-     * This is a placeholder implementation.
-     * In production, integrate with Twilio Java SDK.
      */
     private boolean sendToTwilio(String toPhoneNumber, String message) {
-        // TODO: Integrate with Twilio Java SDK
-        // Twilio.init(accountSid, authToken);
-        // Message.creator(new PhoneNumber(fromPhoneNumber), new PhoneNumber(toPhoneNumber))
-        //         .setBody(message)
-        //         .create();
-
-        log.info("SMS sent successfully to: {} (placeholder implementation)", toPhoneNumber);
-        return true;
+        try {
+            Twilio.init(accountSid, authToken);
+            Message twilioMessage = Message.creator(new PhoneNumber(toPhoneNumber), new PhoneNumber(fromPhoneNumber), message)
+                    .create();
+            Message.Status status = twilioMessage.getStatus();
+            boolean success = status != Message.Status.FAILED && status != Message.Status.UNDELIVERED;
+            if (!success) {
+                log.error("Twilio failed to deliver message to {}. Status={}, SID={}", toPhoneNumber, status,
+                        twilioMessage.getSid());
+            }
+            return success;
+        } catch (ApiException e) {
+            log.error("Twilio API error sending SMS to {}: {}", toPhoneNumber, e.getMessage(), e);
+            return false;
+        }
     }
 
     /**
      * Send bulk SMS using Twilio API.
-     * This is a placeholder implementation.
      */
     private boolean sendBulkToTwilio(java.util.List<String> toPhoneNumbers, String message) {
-        // TODO: Integrate with Twilio Java SDK for bulk messaging
-        // Twilio.init(accountSid, authToken);
-        // List<PhoneNumber> recipients = toPhoneNumbers.stream()
-        //         .map(PhoneNumber::new)
-        //         .collect(Collectors.toList());
-        // Message.creator(new PhoneNumber(fromPhoneNumber), recipients)
-        //         .setBody(message)
-        //         .create();
-
-        log.info("Bulk SMS sent successfully to {} numbers (placeholder implementation)", toPhoneNumbers.size());
-        return true;
+        boolean allSuccess = true;
+        for (String number : toPhoneNumbers) {
+            boolean success = sendToTwilio(number, message);
+            allSuccess = allSuccess && success;
+        }
+        return allSuccess;
     }
 
     /**
@@ -345,5 +381,21 @@ public class SmsService {
 
         final int SEGMENT_LENGTH = 160;
         return (int) Math.ceil((double) message.length() / SEGMENT_LENGTH);
+    }
+
+    private boolean hasTwilioConfiguration() {
+        return accountSid != null && !accountSid.isBlank()
+                && authToken != null && !authToken.isBlank()
+                && fromPhoneNumber != null && !fromPhoneNumber.isBlank();
+    }
+
+    private Recipient resolveRecipientFromUser(UUID userId) {
+        Optional<UserProfile> profile = userRepository.findProfileByUserId(userId);
+        return profile.map(userProfile -> new Recipient(formatPhoneNumber(userProfile.getPhoneNumber())))
+                .filter(r -> validatePhoneNumber(r.phone()))
+                .orElse(null);
+    }
+
+    private record Recipient(String phone) {
     }
 }
