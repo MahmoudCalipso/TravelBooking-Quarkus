@@ -19,6 +19,7 @@ import com.travelplatform.domain.service.AvailabilityService;
 import com.travelplatform.domain.service.PricingService;
 import com.travelplatform.domain.valueobject.DateRange;
 import com.travelplatform.domain.valueobject.Money;
+import com.travelplatform.interfaces.websocket.AvailabilityWebSocketEndpoint;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -157,6 +158,12 @@ public class BookingService {
         // Save booking
         bookingRepository.save(booking);
 
+        // Broadcast availability change for this accommodation/date range
+        AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
+                booking.getCheckInDate(), false);
+        AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
+                booking.getCheckOutDate(), false);
+
         return bookingMapper.toBookingResponse(booking);
     }
 
@@ -260,6 +267,10 @@ public class BookingService {
         booking.cancel(reason, userId);
         bookingRepository.save(booking);
 
+        // Release availability for the start date
+        AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
+                booking.getCheckInDate(), true);
+
         return bookingMapper.toBookingResponse(booking);
     }
 
@@ -311,6 +322,8 @@ public class BookingService {
         if (booking.getPayment().getStatus() == PaymentStatus.COMPLETED) {
             booking.confirm();
             bookingRepository.save(booking);
+            AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
+                    booking.getCheckInDate(), false);
         }
 
         return bookingMapper.toBookingResponse(booking);
@@ -376,6 +389,8 @@ public class BookingService {
         }
         booking.cancel(reason, supplierId);
         bookingRepository.save(booking);
+        AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
+                booking.getCheckInDate(), true);
         return bookingMapper.toBookingResponse(booking);
     }
 

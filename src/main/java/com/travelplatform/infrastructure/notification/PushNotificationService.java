@@ -7,6 +7,9 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
+import com.travelplatform.infrastructure.persistence.entity.DeviceTokenEntity;
+import com.travelplatform.infrastructure.persistence.repository.JpaDeviceTokenRepository;
+import com.travelplatform.interfaces.websocket.NotificationWebSocketEndpoint;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -38,6 +41,9 @@ public class PushNotificationService {
 
     @Inject
     FirebaseApp firebaseApp;
+
+    @Inject
+    JpaDeviceTokenRepository deviceTokenRepository;
 
     private final Map<UUID, List<String>> userDeviceTokens = new ConcurrentHashMap<>();
 
@@ -337,6 +343,12 @@ public class PushNotificationService {
             }
             return tokens;
         });
+        deviceTokenRepository.findByToken(deviceToken)
+                .orElseGet(() -> {
+                    DeviceTokenEntity entity = new DeviceTokenEntity(UUID.randomUUID(), userId, deviceToken);
+                    deviceTokenRepository.persist(entity);
+                    return entity;
+                });
     }
 
     /**
@@ -347,6 +359,7 @@ public class PushNotificationService {
             tokens.remove(deviceToken);
             return tokens.isEmpty() ? null : tokens;
         });
+        deviceTokenRepository.deleteByToken(deviceToken);
     }
 
     /**
@@ -355,9 +368,19 @@ public class PushNotificationService {
     public boolean sendPushNotification(UUID userId, String title, String message) {
         List<String> tokens = userDeviceTokens.getOrDefault(userId, List.of());
         if (tokens.isEmpty()) {
+            // Load from persistence if cache empty
+            tokens = deviceTokenRepository.findByUserId(userId).stream()
+                    .map(DeviceTokenEntity::getToken)
+                    .toList();
+            if (!tokens.isEmpty()) {
+                userDeviceTokens.put(userId, new ArrayList<>(tokens));
+            }
+        }
+        if (tokens.isEmpty()) {
             log.warn("No registered device tokens for user {}. Skipping push notification.", userId);
             return false;
         }
+        NotificationWebSocketEndpoint.sendNotification(userId, title, message, "PUSH");
         return sendPushNotificationToMultiple(tokens, title, message, Map.of("userId", userId.toString()));
     }
 

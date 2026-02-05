@@ -119,7 +119,27 @@ GET    /api/v1/admin/reports
 - **Firebase** - Cloud storage
 - **Stripe** - Payment processing
 - **MapStruct** - DTO mapping
+- **WebSockets** - Real-time chat, availability, notifications
 - **Docker** - Containerization
+
+## 🌐 Globalization & Local Payments
+
+Local payment routing is currently a placeholder switch that selects a provider name per region. To productionize:
+- Integrate each regional gateway SDK/webhooks (e.g., SEPA/iDEAL/Sofort for EU, Alipay/WeChat for APAC, Mercado Pago/OXXO for LATAM, PayTabs/Mada for MEA).
+- Map gateway statuses back to your `PaymentStatus`, and handle retries, idempotency keys, and signature verification like the Stripe webhook does.
+- Present and settle in the user’s preferred currency using live FX rates (configure `currency.rates.usd` or plug in a rates API).
+- Provide clear customer flows for redirects/3DS where required and capture/void/refund paths per provider.
+
+### Point 4: Redirect/3DS flow details
+- Surface 3DS/redirect steps in the UI: show a loading state, open the bank challenge, and display a “returning to merchant” state while polling the webhook for final status.
+- Track `payment_intent` (or gateway equivalent) status server-side; use webhooks as the source of truth and update bookings idempotently.
+- Handle fallbacks: expire unfinished intents after a timeout, allow users to retry with a new intent, and surface a “try another payment method” option on failure.
+- Capture/void/refund should be consistent with Stripe’s flow: create intent → authorize → capture on confirmation; void if cancelled pre-capture; issue refunds with audit logging.
+
+## ⚡ Real-time Tokens & Caching (Scale)
+- Push/WebSocket device tokens are persisted in `device_tokens` and rehydrated into an in-memory cache for fast fan-out; tokens are added/removed on register/unregister to survive restarts.
+- Social proof counters and loyalty balances now use short-lived caches (45s for social proof, 5m for loyalty) layered over the database to reduce read load while keeping DB writes authoritative.
+- Availability updates broadcast in real time over `/ws/availability/{accommodationId}` so active viewers see “just booked”/“now available” changes without polling.
 
 ---
 
