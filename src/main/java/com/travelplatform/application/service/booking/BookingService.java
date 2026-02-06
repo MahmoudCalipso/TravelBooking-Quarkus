@@ -40,6 +40,9 @@ public class BookingService {
     BookingRepository bookingRepository;
 
     @Inject
+    PaymentGateway paymentGateway;
+
+    @Inject
     AccommodationRepository accommodationRepository;
 
     @Inject
@@ -141,39 +144,79 @@ public class BookingService {
                 BookingPayment.PaymentMethod.CARD, // Default payment method
                 "STRIPE" // Default payment provider
         );
-        // payment.setTransactionId(null); // Optional, initially null
-        // payment.setStatus(PaymentStatus.UNPAID); // Default is PENDING in
-        // constructor, but Service wants UNPAID?
-        // Wait, constructor sets PENDING. Service previously set UNPAID.
-        // Let's stick to constructor default PENDING or update if needed.
-        // If UNPAID is required, I should check if PaymentStatus has UNPAID.
-        // The previous code had PaymentStatus.UNPAID.
-        // Let's assume PENDING is fine or set it involved.
-        // Actually, BookingPayment constructor sets PENDING.
-        // If I need UNPAID, I might need a setter or change constructor.
-        // But let's check PaymentStatus enum. Assuming UNPAID exists or PENDING is the
-        // intended initial state.
         booking.setPayment(payment);
 
         // Save booking
         bookingRepository.save(booking);
 
-        // Broadcast availability change for this accommodation/date range
+        // Broadcast availability change
         AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
                 booking.getCheckInDate(), false);
-        AvailabilityWebSocketEndpoint.broadcastAvailabilityChange(booking.getAccommodationId(),
-                booking.getCheckOutDate(), false);
 
         return bookingMapper.toBookingResponse(booking);
+    }
+
+    /**
+     * Initiate payment for a booking using Stripe Connect if applicable.
+     */
+    @Transactional
+    public PaymentGateway.PaymentIntent initiatePayment(UUID userId, UUID bookingId) throws PaymentException {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        if (!booking.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Not authorized to pay for this booking");
+        }
+
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+
+        User supplier = userRepository.findById(accommodation.getSupplierId())
+                .orElseThrow(() -> new IllegalArgumentException("Supplier not found"));
+
+        String stripeConnectId = supplier.getProfile() != null ? supplier.getProfile().getStripeConnectAccountId()
+                : null;
+
+        if (stripeConnectId != null) {
+            // Split payment: Supplier receives total base + cleaning, Platform takes
+            // service fee + tax?
+            // Actually platform fee is service fee.
+            BigDecimal appFee = booking.getServiceFee().getAmount();
+            return paymentGateway.createPaymentIntentWithTransfer(
+                    booking.getId(),
+                    booking.getTotalPrice().getAmount(),
+                    booking.getTotalPrice().getCurrency(),
+                    "CARD",
+                    "Booking for " + accommodation.getTitle(),
+                    stripeConnectId,
+                    appFee);
+        } else {
+            // Standard payment to platform
+            return paymentGateway.createPaymentIntent(
+                    booking.getId(),
+                    booking.getTotalPrice().getAmount(),
+                    booking.getTotalPrice().getCurrency(),
+                    "CARD",
+                    "Booking for " + accommodation.getTitle());
+        }
     }
 
     /**
      * Get booking by ID.
      */
     @Transactional
-    public BookingResponse getBookingById(UUID bookingId) {
+    public BookingResponse getBookingById(UUID userId, UUID bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        // Verify ownership (Traveler who booked it or Supplier who owns the
+        // accommodation)
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+
+        if (!booking.getUserId().equals(userId) && !accommodation.getSupplierId().equals(userId)) {
+            throw new IllegalArgumentException("You are not authorized to view this booking");
+        }
 
         return bookingMapper.toBookingResponse(booking);
     }
@@ -183,7 +226,7 @@ public class BookingService {
      */
     @Transactional
     public List<BookingResponse> getBookingsByUser(UUID userId, BookingStatus status, int page, int pageSize) {
-        List<Booking> bookings = bookingRepository.findByUserIdPaginated(userId, status,page, pageSize);
+        List<Booking> bookings = bookingRepository.findByUserIdPaginated(userId, status, page, pageSize);
         return bookingMapper.toBookingResponseList(bookings);
     }
 
@@ -191,8 +234,10 @@ public class BookingService {
      * Get bookings by accommodation (for suppliers).
      */
     @Transactional
-    public List<BookingResponse> getBookingsByAccommodation(UUID accommodationId, BookingStatus status, int page, int pageSize) {
-        List<Booking> bookings = bookingRepository.findByAccommodationIdPaginated(accommodationId, status, page, pageSize);
+    public List<BookingResponse> getBookingsByAccommodation(UUID accommodationId, BookingStatus status, int page,
+            int pageSize) {
+        List<Booking> bookings = bookingRepository.findByAccommodationIdPaginated(accommodationId, status, page,
+                pageSize);
         return bookingMapper.toBookingResponseList(bookings);
     }
 
@@ -223,9 +268,17 @@ public class BookingService {
      * Confirm booking.
      */
     @Transactional
-    public BookingResponse confirmBooking(UUID bookingId) {
+    public BookingResponse confirmBooking(UUID supplierId, UUID bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        // Verify supplier ownership
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+
+        if (!accommodation.getSupplierId().equals(supplierId)) {
+            throw new IllegalArgumentException("You can only confirm bookings for your own accommodations");
+        }
 
         // Check if booking can be confirmed
         if (booking.getStatus() != BookingStatus.PENDING) {
@@ -237,8 +290,6 @@ public class BookingService {
         bookingRepository.save(booking);
 
         // Update accommodation booking count
-        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
-                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
         accommodation.incrementBookingCount();
         accommodationRepository.save(accommodation);
 
@@ -278,9 +329,17 @@ public class BookingService {
      * Complete booking.
      */
     @Transactional
-    public BookingResponse completeBooking(UUID bookingId) {
+    public BookingResponse completeBooking(UUID userId, UUID bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        // Verify ownership (Traveler or Supplier)
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+
+        if (!booking.getUserId().equals(userId) && !accommodation.getSupplierId().equals(userId)) {
+            throw new IllegalArgumentException("You are not authorized to complete this booking");
+        }
 
         // Check if booking can be completed
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
@@ -298,19 +357,18 @@ public class BookingService {
      * Process payment.
      */
     @Transactional
-    public BookingResponse processPayment(UUID bookingId, String transactionId) {
+    public BookingResponse processPayment(UUID userId, UUID bookingId, String transactionId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
+        // Verify ownership (Only Traveler can pay)
+        if (!booking.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("You can only process payments for your own bookings");
+        }
+
         // Check if payment can be processed
         if (booking.getPayment().getStatus() != PaymentStatus.PENDING
-                && booking.getPayment().getStatus() != PaymentStatus.FAILED) { // Assuming retry on failed? Or just
-                                                                               // PENDING.
-            // If strictly first attempt, PENDING. If expecting retries, maybe FAILED too.
-            // But replacing UNPAID with PENDING is the goal.
-            // Original: PENDING && UNPAID.
-            // New: PENDING only (since UNPAID is synonym but might be distinct constant).
-            // Let's use PENDING.
+                && booking.getPayment().getStatus() != PaymentStatus.FAILED) {
             throw new IllegalArgumentException("Payment has already been processed or is in invalid state");
         }
 
@@ -333,9 +391,17 @@ public class BookingService {
      * Refund booking.
      */
     @Transactional
-    public BookingResponse refundBooking(UUID bookingId, String refundReason) {
+    public BookingResponse refundBooking(UUID userId, UUID bookingId, String refundReason) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        // Verify ownership (Traveler or Supplier)
+        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
+                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
+
+        if (!booking.getUserId().equals(userId) && !accommodation.getSupplierId().equals(userId)) {
+            throw new IllegalArgumentException("You are not authorized to refund this booking");
+        }
 
         // Check if booking can be refunded
         if (booking.getPayment().getStatus() != PaymentStatus.COMPLETED) {
@@ -343,9 +409,6 @@ public class BookingService {
         }
 
         // Calculate refund amount based on cancellation policy
-        Accommodation accommodation = accommodationRepository.findById(booking.getAccommodationId())
-                .orElseThrow(() -> new IllegalArgumentException("Accommodation not found"));
-
         // Calculate days before check-in
         long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), booking.getCheckInDate());
         int daysBeforeCheckIn = (int) daysDiff;

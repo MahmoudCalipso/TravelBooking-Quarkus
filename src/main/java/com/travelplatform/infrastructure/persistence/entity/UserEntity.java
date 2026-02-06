@@ -13,14 +13,10 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "users", indexes = {
-    @Index(name = "idx_users_email", columnList = "email", unique = true),
-    @Index(name = "idx_users_role_status", columnList = "role, status")
+        @Index(name = "idx_users_email", columnList = "email", unique = true),
+        @Index(name = "idx_users_role_status", columnList = "role, status")
 })
-public class UserEntity {
-
-    @Id
-    @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;
+public class UserEntity extends BaseEntity {
 
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
@@ -39,12 +35,6 @@ public class UserEntity {
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
@@ -59,19 +49,9 @@ public class UserEntity {
         this.passwordHash = passwordHash;
         this.role = role;
         this.status = status;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
     // Getters and Setters
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
     public String getEmail() {
         return email;
     }
@@ -112,33 +92,11 @@ public class UserEntity {
         this.emailVerified = emailVerified;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
     public LocalDateTime getLastLoginAt() {
         return lastLoginAt;
     }
 
     public void setLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
-    }
-
-    // Lifecycle callbacks
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 }

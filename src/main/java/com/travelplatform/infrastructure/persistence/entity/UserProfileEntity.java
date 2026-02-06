@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "user_profiles", indexes = {
-    @Index(name = "idx_user_profiles_user_id", columnList = "user_id")
+        @Index(name = "idx_user_profiles_user_id", columnList = "user_id")
 })
 public class UserProfileEntity {
 
@@ -50,6 +50,18 @@ public class UserProfileEntity {
 
     @Column(name = "occupation", length = 100)
     private String occupation;
+
+    @Column(name = "stripe_connect_account_id", length = 255)
+    private String stripeConnectAccountId;
+
+    @Column(name = "bank_name", length = 255)
+    private String bankName;
+
+    @Column(name = "bank_account_iban", length = 50)
+    private String bankAccountIban;
+
+    @Column(name = "bank_account_bic", length = 20)
+    private String bankAccountBic;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -162,6 +174,38 @@ public class UserProfileEntity {
 
     public void setOccupation(String occupation) {
         this.occupation = occupation;
+    }
+
+    public String getStripeConnectAccountId() {
+        return stripeConnectAccountId;
+    }
+
+    public void setStripeConnectAccountId(String stripeConnectAccountId) {
+        this.stripeConnectAccountId = stripeConnectAccountId;
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public String getBankAccountIban() {
+        return bankAccountIban;
+    }
+
+    public void setBankAccountIban(String bankAccountIban) {
+        this.bankAccountIban = bankAccountIban;
+    }
+
+    public String getBankAccountBic() {
+        return bankAccountBic;
+    }
+
+    public void setBankAccountBic(String bankAccountBic) {
+        this.bankAccountBic = bankAccountBic;
     }
 
     public LocalDateTime getCreatedAt() {

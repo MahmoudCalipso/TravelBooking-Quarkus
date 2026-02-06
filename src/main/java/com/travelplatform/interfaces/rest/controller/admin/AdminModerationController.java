@@ -7,10 +7,10 @@ import com.travelplatform.application.dto.response.review.ReviewResponse;
 import com.travelplatform.application.dto.response.user.UserResponse;
 import com.travelplatform.application.service.admin.AdminAnalyticsService;
 import com.travelplatform.application.service.admin.AdminModerationService;
+import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.enums.UserStatus;
 import com.travelplatform.domain.model.reel.ReelReport;
-import io.quarkus.security.Authenticated;
-import jakarta.annotation.security.RolesAllowed;
+import com.travelplatform.infrastructure.security.authorization.Authorized;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -38,7 +38,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Admin Moderation", description = "Admin content moderation")
-@RolesAllowed("SUPER_ADMIN")
+@Authorized(roles = { UserRole.SUPER_ADMIN })
 public class AdminModerationController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminModerationController.class);
@@ -49,19 +49,18 @@ public class AdminModerationController {
     /**
      * Get reported reels.
      *
-     * @param status The report status filter
-     * @param page The page number
+     * @param status   The report status filter
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of reported reels
      */
     @GET
     @Path("/reports/reels")
-    @Authenticated
     @Operation(summary = "Get reported reels", description = "Get reels that have been reported")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reported reels retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Reported reels retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getReportedReels(
             @QueryParam("status") String status,
@@ -79,11 +78,10 @@ public class AdminModerationController {
                 reports = adminModerationService.getReelReports(pageIndex, pageSize);
             }
 
-            PageResponse<ReelReport> response =
-                    toPageResponse(reports, page, pageSize, reports.size());
+            PageResponse<ReelReport> response = toPageResponse(reports, page, pageSize, reports.size());
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting reported reels", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -95,19 +93,18 @@ public class AdminModerationController {
     /**
      * Get reported reviews.
      *
-     * @param status The report status filter
-     * @param page The page number
+     * @param status   The report status filter
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of reported reviews
      */
     @GET
     @Path("/reports/reviews")
-    @Authenticated
     @Operation(summary = "Get reported reviews", description = "Get reviews that have been reported")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reported reviews retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Reported reviews retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getReportedReviews(
             @QueryParam("status") String status,
@@ -118,11 +115,10 @@ public class AdminModerationController {
 
             int pageIndex = toPageIndex(page);
             List<ReviewResponse> reviews = adminModerationService.getFlaggedReviews(pageIndex, pageSize);
-            PageResponse<ReviewResponse> response =
-                    toPageResponse(reviews, page, pageSize, reviews.size());
+            PageResponse<ReviewResponse> response = toPageResponse(reviews, page, pageSize, reviews.size());
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting reported reviews", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -134,19 +130,18 @@ public class AdminModerationController {
     /**
      * Get reported users.
      *
-     * @param status The report status filter
-     * @param page The page number
+     * @param status   The report status filter
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of reported users
      */
     @GET
     @Path("/reports/users")
-    @Authenticated
     @Operation(summary = "Get reported users", description = "Get users that have been reported")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reported users retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Reported users retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getReportedUsers(
             @QueryParam("status") String status,
@@ -160,13 +155,11 @@ public class AdminModerationController {
             if (status != null && !status.isBlank()) {
                 resolvedStatus = UserStatus.valueOf(status.toUpperCase());
             }
-            List<UserResponse> users =
-                    adminModerationService.getUsersByStatus(resolvedStatus, pageIndex, pageSize);
-            PageResponse<UserResponse> response =
-                    toPageResponse(users, page, pageSize, users.size());
+            List<UserResponse> users = adminModerationService.getUsersByStatus(resolvedStatus, pageIndex, pageSize);
+            PageResponse<UserResponse> response = toPageResponse(users, page, pageSize, users.size());
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting reported users", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -178,18 +171,17 @@ public class AdminModerationController {
     /**
      * Get all reports.
      *
-     * @param page The page number
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of all reports
      */
     @GET
     @Path("/reports")
-    @Authenticated
     @Operation(summary = "Get all reports", description = "Get all content reports")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reports retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Reports retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getAllReports(
             @QueryParam("page") @DefaultValue("1") int page,
@@ -199,11 +191,10 @@ public class AdminModerationController {
 
             int pageIndex = toPageIndex(page);
             List<ReelReport> reports = adminModerationService.getReelReports(pageIndex, pageSize);
-            PageResponse<ReelReport> response =
-                    toPageResponse(reports, page, pageSize, reports.size());
+            PageResponse<ReelReport> response = toPageResponse(reports, page, pageSize, reports.size());
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting all reports", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -220,13 +211,12 @@ public class AdminModerationController {
      */
     @GET
     @Path("/reports/{reportId}")
-    @Authenticated
     @Operation(summary = "Get report details", description = "Get details of a specific report")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Report details retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Report not found")
+            @APIResponse(responseCode = "200", description = "Report details retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response getReportDetails(@PathParam("reportId") UUID reportId) {
         try {
@@ -237,7 +227,7 @@ public class AdminModerationController {
             return Response.ok()
                     .entity(new SuccessResponse<>(report, "Report details retrieved successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Report not found: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -254,20 +244,19 @@ public class AdminModerationController {
     /**
      * Review report.
      *
-     * @param reportId The report ID
-     * @param action The action taken (DISMISSED, ACTION_TAKEN)
+     * @param reportId   The report ID
+     * @param action     The action taken (DISMISSED, ACTION_TAKEN)
      * @param adminNotes The admin notes
      * @return Success response
      */
     @PUT
     @Path("/reports/{reportId}/review")
-    @Authenticated
     @Operation(summary = "Review report", description = "Review and take action on a report")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Report reviewed successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Report not found")
+            @APIResponse(responseCode = "200", description = "Report reviewed successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response reviewReport(
             @Context SecurityContext securityContext,
@@ -280,11 +269,11 @@ public class AdminModerationController {
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             AdminModerationService.ReportAction resolvedAction = resolveReportAction(action);
             adminModerationService.reviewReelReport(adminId, reportId, resolvedAction, adminNotes);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Report reviewed successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Report review failed: {}", e.getMessage());
             return Response.status(Response.Status.BAD_REQUEST)
@@ -306,13 +295,12 @@ public class AdminModerationController {
      */
     @PUT
     @Path("/reports/{reportId}/dismiss")
-    @Authenticated
     @Operation(summary = "Dismiss report", description = "Dismiss a report")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Report dismissed successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Report not found")
+            @APIResponse(responseCode = "200", description = "Report dismissed successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response dismissReport(
             @Context SecurityContext securityContext,
@@ -322,11 +310,11 @@ public class AdminModerationController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminModerationService.dismissReelReport(adminId, reportId, null);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Report dismissed successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Report dismissal failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -344,19 +332,19 @@ public class AdminModerationController {
      * Take action on report.
      *
      * @param reportId The report ID
-     * @param action The action to take (FLAG_CONTENT, REMOVE_CONTENT, SUSPEND_USER)
-     * @param reason The reason for action
+     * @param action   The action to take (FLAG_CONTENT, REMOVE_CONTENT,
+     *                 SUSPEND_USER)
+     * @param reason   The reason for action
      * @return Success response
      */
     @PUT
     @Path("/reports/{reportId}/action")
-    @Authenticated
     @Operation(summary = "Take action on report", description = "Take moderation action on reported content")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Action taken successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Report not found")
+            @APIResponse(responseCode = "200", description = "Action taken successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Report not found")
     })
     public Response takeActionOnReport(
             @Context SecurityContext securityContext,
@@ -369,11 +357,11 @@ public class AdminModerationController {
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             AdminModerationService.ReportAction resolvedAction = resolveReportAction(action);
             adminModerationService.reviewReelReport(adminId, reportId, resolvedAction, reason);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Action taken successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Action on report failed: {}", e.getMessage());
             return Response.status(Response.Status.BAD_REQUEST)
@@ -394,12 +382,11 @@ public class AdminModerationController {
      */
     @GET
     @Path("/statistics")
-    @Authenticated
     @Operation(summary = "Get moderation statistics", description = "Get moderation statistics")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getModerationStatistics() {
         try {
@@ -410,7 +397,7 @@ public class AdminModerationController {
             return Response.ok()
                     .entity(new SuccessResponse<>(summary, "Statistics retrieved successfully"))
                     .build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting moderation statistics", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -455,7 +442,7 @@ public class AdminModerationController {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @Tag(name = "Admin Analytics", description = "Admin analytics and reporting")
-    @RolesAllowed("SUPER_ADMIN")
+    @Authorized(roles = { UserRole.SUPER_ADMIN })
     public static class AdminAnalyticsController {
 
         private static final Logger log = LoggerFactory.getLogger(AdminAnalyticsController.class);
@@ -470,12 +457,11 @@ public class AdminModerationController {
          */
         @GET
         @Path("/overview")
-        @Authenticated
         @Operation(summary = "Get platform overview", description = "Get platform overview statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Overview retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Overview retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getPlatformOverview() {
             try {
@@ -499,17 +485,16 @@ public class AdminModerationController {
          * Get accommodation statistics.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return Accommodation statistics
          */
         @GET
         @Path("/accommodations")
-        @Authenticated
         @Operation(summary = "Get accommodation statistics", description = "Get accommodation statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getAccommodationStatistics(
                 @QueryParam("startDate") LocalDate startDate,
@@ -517,8 +502,8 @@ public class AdminModerationController {
             try {
                 log.info("Get accommodation statistics request");
 
-                AdminAnalyticsService.AccommodationAnalytics statistics =
-                        adminAnalyticsService.getAccommodationAnalytics();
+                AdminAnalyticsService.AccommodationAnalytics statistics = adminAnalyticsService
+                        .getAccommodationAnalytics();
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -536,17 +521,16 @@ public class AdminModerationController {
          * Get reel statistics.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return Reel statistics
          */
         @GET
         @Path("/reels")
-        @Authenticated
         @Operation(summary = "Get reel statistics", description = "Get reel statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getReelStatistics(
                 @QueryParam("startDate") LocalDate startDate,
@@ -554,8 +538,7 @@ public class AdminModerationController {
             try {
                 log.info("Get reel statistics request");
 
-                AdminAnalyticsService.ReelAnalytics statistics =
-                        adminAnalyticsService.getReelAnalytics();
+                AdminAnalyticsService.ReelAnalytics statistics = adminAnalyticsService.getReelAnalytics();
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -573,17 +556,16 @@ public class AdminModerationController {
          * Get booking statistics.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return Booking statistics
          */
         @GET
         @Path("/bookings")
-        @Authenticated
         @Operation(summary = "Get booking statistics", description = "Get booking statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getBookingStatistics(
                 @QueryParam("startDate") LocalDate startDate,
@@ -591,8 +573,7 @@ public class AdminModerationController {
             try {
                 log.info("Get booking statistics request");
 
-                AdminAnalyticsService.BookingAnalytics statistics =
-                        adminAnalyticsService.getBookingAnalytics();
+                AdminAnalyticsService.BookingAnalytics statistics = adminAnalyticsService.getBookingAnalytics();
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -610,17 +591,16 @@ public class AdminModerationController {
          * Get revenue reports.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return Revenue reports
          */
         @GET
         @Path("/revenue")
-        @Authenticated
         @Operation(summary = "Get revenue reports", description = "Get revenue reports")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Revenue reports retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Revenue reports retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getRevenueReports(
                 @QueryParam("startDate") LocalDate startDate,
@@ -630,8 +610,8 @@ public class AdminModerationController {
 
                 LocalDate resolvedStart = startDate != null ? startDate : LocalDate.now().minusDays(30);
                 LocalDate resolvedEnd = endDate != null ? endDate : LocalDate.now();
-                AdminAnalyticsService.RevenueAnalytics revenue =
-                        adminAnalyticsService.getRevenueAnalytics(resolvedStart, resolvedEnd);
+                AdminAnalyticsService.RevenueAnalytics revenue = adminAnalyticsService
+                        .getRevenueAnalytics(resolvedStart, resolvedEnd);
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(revenue, "Revenue reports retrieved successfully"))
@@ -646,16 +626,16 @@ public class AdminModerationController {
         }
 
         /**
-         * Get platform fee analytics (service fees collected from suppliers/associations).
+         * Get platform fee analytics (service fees collected from
+         * suppliers/associations).
          */
         @GET
         @Path("/revenue/platform-fees")
-        @Authenticated
         @Operation(summary = "Get platform fee analytics", description = "Summarize platform fees collected from suppliers and association managers")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Platform fee analytics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Platform fee analytics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getPlatformFees(
                 @QueryParam("startDate") LocalDate startDate,
@@ -663,8 +643,8 @@ public class AdminModerationController {
             try {
                 log.info("Get platform fee analytics request");
 
-                AdminAnalyticsService.PlatformFeeAnalytics analytics =
-                        adminAnalyticsService.getPlatformFeeAnalytics(startDate, endDate);
+                AdminAnalyticsService.PlatformFeeAnalytics analytics = adminAnalyticsService
+                        .getPlatformFeeAnalytics(startDate, endDate);
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(analytics, "Platform fees retrieved successfully"))
@@ -682,17 +662,16 @@ public class AdminModerationController {
          * Get user statistics.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return User statistics
          */
         @GET
         @Path("/users")
-        @Authenticated
         @Operation(summary = "Get user statistics", description = "Get user statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getUserStatistics(
                 @QueryParam("startDate") LocalDate startDate,
@@ -700,8 +679,7 @@ public class AdminModerationController {
             try {
                 log.info("Get user statistics request");
 
-                AdminAnalyticsService.UserAnalytics statistics =
-                        adminAnalyticsService.getUserAnalytics();
+                AdminAnalyticsService.UserAnalytics statistics = adminAnalyticsService.getUserAnalytics();
 
                 return Response.ok()
                         .entity(new SuccessResponse<>(statistics, "Statistics retrieved successfully"))
@@ -719,17 +697,16 @@ public class AdminModerationController {
          * Get content statistics.
          *
          * @param startDate The start date
-         * @param endDate The end date
+         * @param endDate   The end date
          * @return Content statistics
          */
         @GET
         @Path("/content")
-        @Authenticated
         @Operation(summary = "Get content statistics", description = "Get content statistics")
         @APIResponses(value = {
-            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-            @APIResponse(responseCode = "401", description = "Not authenticated"),
-            @APIResponse(responseCode = "403", description = "Insufficient permissions")
+                @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+                @APIResponse(responseCode = "401", description = "Not authenticated"),
+                @APIResponse(responseCode = "403", description = "Insufficient permissions")
         })
         public Response getContentStatistics(
                 @QueryParam("startDate") LocalDate startDate,

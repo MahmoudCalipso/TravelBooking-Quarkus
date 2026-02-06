@@ -21,6 +21,10 @@ public class UserProfile {
     private String phoneNumber;
     private DrivingLicenseCategory drivingLicenseCategory;
     private WorkStatus occupation;
+    private String stripeConnectAccountId;
+    private String bankName;
+    private String bankAccountIban;
+    private String bankAccountBic;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -59,6 +63,7 @@ public class UserProfile {
     public UserProfile(UUID id, UUID userId, String fullName, String photoUrl, LocalDate birthDate,
             Gender gender, String bio, String location, String phoneNumber,
             DrivingLicenseCategory drivingLicenseCategory, WorkStatus occupation,
+            String stripeConnectAccountId, String bankName, String bankAccountIban, String bankAccountBic,
             LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.userId = userId;
@@ -71,6 +76,10 @@ public class UserProfile {
         this.phoneNumber = phoneNumber;
         this.drivingLicenseCategory = drivingLicenseCategory;
         this.occupation = occupation;
+        this.stripeConnectAccountId = stripeConnectAccountId;
+        this.bankName = bankName;
+        this.bankAccountIban = bankAccountIban;
+        this.bankAccountBic = bankAccountBic;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -251,6 +260,42 @@ public class UserProfile {
 
     public void setOccupation(WorkStatus occupation) {
         updateOccupation(occupation);
+    }
+
+    public String getStripeConnectAccountId() {
+        return stripeConnectAccountId;
+    }
+
+    public void setStripeConnectAccountId(String stripeConnectAccountId) {
+        this.stripeConnectAccountId = stripeConnectAccountId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getBankAccountIban() {
+        return bankAccountIban;
+    }
+
+    public void setBankAccountIban(String bankAccountIban) {
+        this.bankAccountIban = bankAccountIban;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getBankAccountBic() {
+        return bankAccountBic;
+    }
+
+    public void setBankAccountBic(String bankAccountBic) {
+        this.bankAccountBic = bankAccountBic;
+        this.updatedAt = LocalDateTime.now();
     }
 
     /**

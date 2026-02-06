@@ -5,7 +5,6 @@ import com.travelplatform.domain.enums.ApprovalStatus;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -16,17 +15,13 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "accommodations", indexes = {
-    @Index(name = "idx_accommodations_supplier_id", columnList = "supplier_id"),
-    @Index(name = "idx_accommodations_status", columnList = "status"),
-    @Index(name = "idx_accommodations_city_country", columnList = "city, country"),
-    @Index(name = "idx_accommodations_status_premium_rating", columnList = "status, is_premium, average_rating"),
-    @Index(name = "idx_accommodations_visibility_dates", columnList = "visibility_start, visibility_end")
+        @Index(name = "idx_accommodations_supplier_id", columnList = "supplier_id"),
+        @Index(name = "idx_accommodations_status", columnList = "status"),
+        @Index(name = "idx_accommodations_city_country", columnList = "city, country"),
+        @Index(name = "idx_accommodations_status_premium_rating", columnList = "status, is_premium, average_rating"),
+        @Index(name = "idx_accommodations_visibility_dates", columnList = "visibility_start, visibility_end")
 })
-public class AccommodationEntity {
-
-    @Id
-    @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;
+public class AccommodationEntity extends BaseEntity {
 
     @Column(name = "supplier_id", nullable = false)
     private UUID supplierId;
@@ -126,12 +121,6 @@ public class AccommodationEntity {
     @Column(name = "review_count")
     private Integer reviewCount = 0;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
@@ -143,8 +132,8 @@ public class AccommodationEntity {
     }
 
     // Constructor for creating new entity
-    public AccommodationEntity(UUID id, UUID supplierId, AccommodationType type, String title, 
-                          String address, String city, String country, BigDecimal basePrice, Integer maxGuests) {
+    public AccommodationEntity(UUID id, UUID supplierId, AccommodationType type, String title,
+            String address, String city, String country, BigDecimal basePrice, Integer maxGuests) {
         this.id = id;
         this.supplierId = supplierId;
         this.type = type;
@@ -155,19 +144,9 @@ public class AccommodationEntity {
         this.basePrice = basePrice;
         this.maxGuests = maxGuests;
         this.status = ApprovalStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
 
     // Getters and Setters
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
     public UUID getSupplierId() {
         return supplierId;
     }
@@ -424,22 +403,6 @@ public class AccommodationEntity {
         this.reviewCount = reviewCount;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
     public LocalDateTime getApprovedAt() {
         return approvedAt;
     }
@@ -454,11 +417,5 @@ public class AccommodationEntity {
 
     public void setApprovedBy(UUID approvedBy) {
         this.approvedBy = approvedBy;
-    }
-
-    // Lifecycle callbacks
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 }

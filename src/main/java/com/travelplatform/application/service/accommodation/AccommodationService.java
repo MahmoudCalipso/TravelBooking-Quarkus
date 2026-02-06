@@ -51,6 +51,9 @@ public class AccommodationService {
 
     @Inject
     AvailabilityService availabilityService;
+    @Inject
+    com.travelplatform.domain.repository.MediaAssetRepository mediaAssetRepository;
+
 
     /**
      * Create a new accommodation.
@@ -131,9 +134,11 @@ public class AccommodationService {
         if (request.getImages() != null && !request.getImages().isEmpty()) {
             List<AccommodationImage> images = new ArrayList<>();
             for (int i = 0; i < request.getImages().size(); i++) {
+                String imageUrl = request.getImages().get(i);
+                validateMediaAsset(imageUrl, com.travelplatform.domain.model.media.MediaAsset.OwnerType.ACCOMMODATION);
                 AccommodationImage image = new AccommodationImage(
                         accommodation.getId(),
-                        request.getImages().get(i),
+                        imageUrl,
                         i,
                         i == 0, // First image is primary
                         request.getTitle() // Use title as caption
@@ -469,5 +474,17 @@ public class AccommodationService {
         analytics.put("averageRating", accommodation.getAverageRating());
         analytics.put("reviewCount", accommodation.getReviewCount());
         return analytics;
+    }
+    private void validateMediaAsset(String publicUrl, com.travelplatform.domain.model.media.MediaAsset.OwnerType ownerType) {
+        if (publicUrl == null) return;
+        
+        var asset = mediaAssetRepository.findByPublicUrl(publicUrl);
+        if (asset.isEmpty()) {
+            if (publicUrl.contains("storage.googleapis.com")) {
+                 throw new IllegalArgumentException("Media asset must be confirmed in the system before use: " + publicUrl);
+            } else {
+                 throw new IllegalArgumentException("Only Firebase Storage URLs are allowed for media: " + publicUrl);
+            }
+        }
     }
 }

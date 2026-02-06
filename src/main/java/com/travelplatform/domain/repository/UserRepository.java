@@ -80,6 +80,17 @@ public interface UserRepository {
     List<User> findAll(int page, int pageSize);
 
     /**
+     * Finds all users with filters and pagination.
+     */
+    List<User> findAll(UserRole role, UserStatus status, java.time.LocalDate startDate, java.time.LocalDate endDate,
+            int page, int pageSize);
+
+    /**
+     * Counts users with filters.
+     */
+    long count(UserRole role, UserStatus status, java.time.LocalDate startDate, java.time.LocalDate endDate);
+
+    /**
      * Finds users by role.
      *
      * @param role user role

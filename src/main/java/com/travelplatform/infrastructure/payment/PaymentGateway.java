@@ -13,16 +13,33 @@ public interface PaymentGateway {
     /**
      * Create a payment intent for a booking.
      *
-     * @param bookingId The booking ID
-     * @param amount The payment amount
-     * @param currency The currency code (e.g., "USD")
+     * @param bookingId     The booking ID
+     * @param amount        The payment amount
+     * @param currency      The currency code (e.g., "USD")
      * @param paymentMethod The payment method (CARD, PAYPAL, BANK_TRANSFER, CRYPTO)
-     * @param description The payment description
+     * @param description   The payment description
      * @return PaymentIntent containing the payment details
      * @throws PaymentException if payment creation fails
      */
-    PaymentIntent createPaymentIntent(UUID bookingId, BigDecimal amount, String currency, 
-                                      String paymentMethod, String description) throws PaymentException;
+    PaymentIntent createPaymentIntent(UUID bookingId, BigDecimal amount, String currency,
+            String paymentMethod, String description) throws PaymentException;
+
+    /**
+     * Create a payment intent with a destination transfer (Connect split payment).
+     *
+     * @param bookingId            The booking ID
+     * @param amount               The total payment amount
+     * @param currency             The currency code
+     * @param paymentMethod        The payment method
+     * @param description          The payment description
+     * @param destinationAccountId The Stripe Connect account ID of the supplier
+     * @param appFeeAmount         The fee amount for the platform
+     * @return PaymentIntent containing the payment details
+     * @throws PaymentException if payment creation fails
+     */
+    PaymentIntent createPaymentIntentWithTransfer(UUID bookingId, BigDecimal amount, String currency,
+            String paymentMethod, String description,
+            String destinationAccountId, BigDecimal appFeeAmount) throws PaymentException;
 
     /**
      * Confirm a payment intent.
@@ -47,8 +64,8 @@ public interface PaymentGateway {
      * Refund a payment.
      *
      * @param paymentIntentId The payment intent ID
-     * @param amount The amount to refund (null for full refund)
-     * @param reason The reason for the refund
+     * @param amount          The amount to refund (null for full refund)
+     * @param reason          The reason for the refund
      * @return RefundResult containing the refund details
      * @throws PaymentException if refund fails
      */
@@ -67,7 +84,7 @@ public interface PaymentGateway {
      * Create a customer.
      *
      * @param email The customer email
-     * @param name The customer name
+     * @param name  The customer name
      * @param phone The customer phone number (optional)
      * @return Customer containing the customer details
      * @throws PaymentException if customer creation fails
@@ -77,14 +94,16 @@ public interface PaymentGateway {
     /**
      * Create a payment method for a customer.
      *
-     * @param customerId The customer ID
-     * @param paymentMethodType The payment method type (CARD, PAYPAL, BANK_ACCOUNT)
-     * @param paymentMethodDetails The payment method details (card token, PayPal email, etc.)
+     * @param customerId           The customer ID
+     * @param paymentMethodType    The payment method type (CARD, PAYPAL,
+     *                             BANK_ACCOUNT)
+     * @param paymentMethodDetails The payment method details (card token, PayPal
+     *                             email, etc.)
      * @return PaymentMethod containing the payment method details
      * @throws PaymentException if payment method creation fails
      */
-    PaymentMethod createPaymentMethod(String customerId, String paymentMethodType, 
-                                       PaymentMethodDetails paymentMethodDetails) throws PaymentException;
+    PaymentMethod createPaymentMethod(String customerId, String paymentMethodType,
+            PaymentMethodDetails paymentMethodDetails) throws PaymentException;
 
     /**
      * Get customer payment methods.
@@ -106,7 +125,7 @@ public interface PaymentGateway {
     /**
      * Create a setup intent for saving payment methods.
      *
-     * @param customerId The customer ID
+     * @param customerId        The customer ID
      * @param paymentMethodType The payment method type
      * @return SetupIntent containing the setup intent details
      * @throws PaymentException if setup intent creation fails
@@ -114,11 +133,32 @@ public interface PaymentGateway {
     SetupIntent createSetupIntent(String customerId, String paymentMethodType) throws PaymentException;
 
     /**
+     * Create a Stripe Connect account for a supplier.
+     *
+     * @param email       The supplier's email
+     * @param accountType The account type (EXPRESS, STANDARD, CUSTOM)
+     * @return The Connect account ID
+     * @throws PaymentException if creation fails
+     */
+    String createConnectAccount(String email, String accountType) throws PaymentException;
+
+    /**
+     * Create an account link for onboarding a Connect account.
+     *
+     * @param accountId  The Connect account ID
+     * @param refreshUrl The URL to refresh the link
+     * @param returnUrl  The URL to return to after completion
+     * @return The onboarding URL
+     * @throws PaymentException if link creation fails
+     */
+    String createAccountLink(String accountId, String refreshUrl, String returnUrl) throws PaymentException;
+
+    /**
      * Verify webhook signature.
      *
-     * @param payload The webhook payload
+     * @param payload   The webhook payload
      * @param signature The webhook signature
-     * @param secret The webhook secret
+     * @param secret    The webhook secret
      * @return true if signature is valid, false otherwise
      */
     boolean verifyWebhookSignature(String payload, String signature, String secret);

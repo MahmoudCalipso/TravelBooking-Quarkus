@@ -59,6 +59,10 @@ public interface UserMapper {
         response.setPhoneNumber(profile.getPhoneNumber());
         response.setDrivingLicenseCategory(profile.getDrivingLicenseCategory() != null ? profile.getDrivingLicenseCategory().name() : null);
         response.setOccupation(profile.getOccupation() != null ? profile.getOccupation().name() : null);
+        response.setStripeConnectAccountId(profile.getStripeConnectAccountId());
+        response.setBankName(profile.getBankName());
+        response.setBankAccountIban(profile.getBankAccountIban());
+        response.setBankAccountBic(profile.getBankAccountBic());
         response.setCreatedAt(profile.getCreatedAt());
         response.setUpdatedAt(profile.getUpdatedAt());
         return response;
@@ -144,6 +148,15 @@ public interface UserMapper {
         if (request.getOccupation() != null) {
             profile.setOccupation(
                     com.travelplatform.domain.model.user.WorkStatus.valueOf(request.getOccupation()));
+        }
+        if (request.getBankName() != null) {
+            profile.setBankName(request.getBankName());
+        }
+        if (request.getBankAccountIban() != null) {
+            profile.setBankAccountIban(request.getBankAccountIban());
+        }
+        if (request.getBankAccountBic() != null) {
+            profile.setBankAccountBic(request.getBankAccountBic());
         }
     }
 

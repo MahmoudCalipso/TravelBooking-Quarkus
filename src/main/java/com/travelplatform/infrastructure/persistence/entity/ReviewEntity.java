@@ -86,6 +86,12 @@ public class ReviewEntity {
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -280,6 +286,22 @@ public class ReviewEntity {
 
     public void setRespondedAt(LocalDateTime respondedAt) {
         this.respondedAt = respondedAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -2,13 +2,12 @@ package com.travelplatform.infrastructure.persistence.repository;
 
 import com.travelplatform.domain.model.chat.ChatGroup;
 import com.travelplatform.domain.model.chat.ChatMessage;
-import com.travelplatform.domain.model.chat.Conversation;
-import com.travelplatform.domain.model.chat.DirectMessage;
-import com.travelplatform.domain.repository.ChatRepository;
-import com.travelplatform.infrastructure.persistence.entity.ChatGroupEntity;
-import com.travelplatform.infrastructure.persistence.entity.ChatMessageEntity;
 import com.travelplatform.infrastructure.persistence.entity.ConversationEntity;
 import com.travelplatform.infrastructure.persistence.entity.DirectMessageEntity;
+import com.travelplatform.infrastructure.persistence.entity.ChatGroupMemberEntity;
+import com.travelplatform.domain.model.chat.ChatGroupMember;
+import com.travelplatform.domain.model.chat.DirectMessage;
+import com.travelplatform.domain.repository.ChatRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -69,14 +68,14 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatGroup> findAllChatGroups() {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g", ChatGroupEntity.class);
         return query.getResultList().stream().map(this::toChatGroupDomain).collect(Collectors.toList());
     }
 
     @Override
     public List<ChatGroup> findChatGroupsByCreatorId(UUID creatorId) {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", ChatGroupEntity.class);
         query.setParameter("creatorId", creatorId);
         return query.getResultList().stream().map(this::toChatGroupDomain).collect(Collectors.toList());
     }
@@ -84,7 +83,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatGroup> findChatGroupsByCreatorIdPaginated(UUID creatorId, int page, int pageSize) {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", ChatGroupEntity.class);
         query.setParameter("creatorId", creatorId);
         query.setFirstResult(page * pageSize);
         query.setMaxResults(pageSize);
@@ -93,42 +92,44 @@ public class JpaChatRepository implements ChatRepository {
 
     public List<ChatGroup> findChatGroupsByUserId(UUID userId) {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :userId AND g.isActive = true", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.createdBy = :userId AND g.isActive = true",
+                ChatGroupEntity.class);
         query.setParameter("userId", userId);
         return query.getResultList().stream()
-            .map(this::toChatGroupDomain)
-            .collect(Collectors.toList());
+                .map(this::toChatGroupDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<ChatGroup> findChatGroupsByReference(String referenceType, UUID referenceId) {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.referenceType = :referenceType AND g.referenceId = :referenceId", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.referenceType = :referenceType AND g.referenceId = :referenceId",
+                ChatGroupEntity.class);
         query.setParameter("referenceType", referenceType);
         query.setParameter("referenceId", referenceId);
         return query.getResultList().stream()
-            .map(this::toChatGroupDomain)
-            .collect(Collectors.toList());
+                .map(this::toChatGroupDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<ChatGroup> findActiveChatGroups() {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.isActive = true", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.isActive = true", ChatGroupEntity.class);
         return query.getResultList().stream().map(this::toChatGroupDomain).collect(Collectors.toList());
     }
 
     @Override
     public List<ChatGroup> findInactiveChatGroups() {
         TypedQuery<ChatGroupEntity> query = entityManager.createQuery(
-            "SELECT g FROM ChatGroupEntity g WHERE g.isActive = false", ChatGroupEntity.class);
+                "SELECT g FROM ChatGroupEntity g WHERE g.isActive = false", ChatGroupEntity.class);
         return query.getResultList().stream().map(this::toChatGroupDomain).collect(Collectors.toList());
     }
 
     @Override
     public long countChatGroupsByCreatorId(UUID creatorId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(g) FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", Long.class);
+                "SELECT COUNT(g) FROM ChatGroupEntity g WHERE g.createdBy = :creatorId", Long.class);
         query.setParameter("creatorId", creatorId);
         return query.getSingleResult();
     }
@@ -136,8 +137,65 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countAllChatGroups() {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(g) FROM ChatGroupEntity g", Long.class);
+                "SELECT COUNT(g) FROM ChatGroupEntity g", Long.class);
         return query.getSingleResult();
+    }
+
+    // ChatGroupMember methods
+    @Override
+    @Transactional
+    public ChatGroupMember saveChatGroupMember(ChatGroupMember member) {
+        ChatGroupMemberEntity entity = toChatGroupMemberEntity(member);
+        Optional<ChatGroupMemberEntity> existing = findChatGroupMemberEntity(member.getChatGroupId(),
+                member.getUserId());
+        if (existing.isPresent()) {
+            ChatGroupMemberEntity e = existing.get();
+            e.setRole(member.getRole().name());
+            entity = entityManager.merge(e);
+        } else {
+            entityManager.persist(entity);
+        }
+        return toChatGroupMemberDomain(entity);
+    }
+
+    @Override
+    public Optional<ChatGroupMember> findChatGroupMember(UUID chatGroupId, UUID userId) {
+        return findChatGroupMemberEntity(chatGroupId, userId).map(this::toChatGroupMemberDomain);
+    }
+
+    @Override
+    public List<ChatGroupMember> findChatGroupMembersByGroupId(UUID chatGroupId) {
+        TypedQuery<ChatGroupMemberEntity> query = entityManager.createQuery(
+                "SELECT m FROM ChatGroupMemberEntity m WHERE m.chatGroupId = :chatGroupId",
+                ChatGroupMemberEntity.class);
+        query.setParameter("chatGroupId", chatGroupId);
+        return query.getResultList().stream().map(this::toChatGroupMemberDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteChatGroupMember(UUID chatGroupId, UUID userId) {
+        findChatGroupMemberEntity(chatGroupId, userId).ifPresent(entityManager::remove);
+    }
+
+    @Override
+    public boolean isMember(UUID chatGroupId, UUID userId) {
+        TypedQuery<Long> query = entityManager.createQuery(
+                "SELECT COUNT(m) FROM ChatGroupMemberEntity m WHERE m.chatGroupId = :chatGroupId AND m.userId = :userId",
+                Long.class);
+        query.setParameter("chatGroupId", chatGroupId);
+        query.setParameter("userId", userId);
+        return query.getSingleResult() > 0;
+    }
+
+    private Optional<ChatGroupMemberEntity> findChatGroupMemberEntity(UUID chatGroupId, UUID userId) {
+        TypedQuery<ChatGroupMemberEntity> query = entityManager.createQuery(
+                "SELECT m FROM ChatGroupMemberEntity m WHERE m.chatGroupId = :chatGroupId AND m.userId = :userId",
+                ChatGroupMemberEntity.class);
+        query.setParameter("chatGroupId", chatGroupId);
+        query.setParameter("userId", userId);
+        List<ChatGroupMemberEntity> results = query.getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
     @Transactional
@@ -190,8 +248,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByChatGroupIdPaginated(UUID chatGroupId, int page, int pageSize) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt ASC",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt ASC",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setFirstResult(page * pageSize);
         query.setMaxResults(pageSize);
@@ -201,7 +259,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesBySenderId(UUID senderId) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.senderId = :senderId", ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.senderId = :senderId", ChatMessageEntity.class);
         query.setParameter("senderId", senderId);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
     }
@@ -209,8 +267,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByChatGroupIdAndSenderId(UUID chatGroupId, UUID senderId) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.senderId = :senderId",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.senderId = :senderId",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setParameter("senderId", senderId);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
@@ -219,7 +277,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByMessageType(String messageType) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.messageType = :messageType", ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.messageType = :messageType", ChatMessageEntity.class);
         query.setParameter("messageType", messageType);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
     }
@@ -227,8 +285,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByChatGroupIdAndMessageType(UUID chatGroupId, String messageType) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.messageType = :messageType",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.messageType = :messageType",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setParameter("messageType", messageType);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
@@ -237,8 +295,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByChatGroupIdAfterDate(UUID chatGroupId, LocalDateTime date) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt >= :date",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt >= :date",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setParameter("date", date);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
@@ -247,8 +305,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesByChatGroupIdBeforeDate(UUID chatGroupId, LocalDateTime date) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt <= :date",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt <= :date",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setParameter("date", date);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
@@ -258,8 +316,8 @@ public class JpaChatRepository implements ChatRepository {
     public List<ChatMessage> findChatMessagesByChatGroupIdBetweenDates(UUID chatGroupId, LocalDateTime startDate,
             LocalDateTime endDate) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt BETWEEN :startDate AND :endDate",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.createdAt BETWEEN :startDate AND :endDate",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDate);
@@ -269,7 +327,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countChatMessagesByChatGroupId(UUID chatGroupId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId", Long.class);
+                "SELECT COUNT(m) FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId", Long.class);
         query.setParameter("chatGroupId", chatGroupId);
         return query.getSingleResult();
     }
@@ -277,7 +335,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countChatMessagesBySenderId(UUID senderId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM ChatMessageEntity m WHERE m.senderId = :senderId", Long.class);
+                "SELECT COUNT(m) FROM ChatMessageEntity m WHERE m.senderId = :senderId", Long.class);
         query.setParameter("senderId", senderId);
         return query.getSingleResult();
     }
@@ -285,8 +343,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findLatestChatMessagesByChatGroupId(UUID chatGroupId, int limit) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt DESC",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt DESC",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setMaxResults(limit);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
@@ -295,29 +353,31 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<ChatMessage> findChatMessagesWithAttachmentsByChatGroupId(UUID chatGroupId) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.attachmentUrl IS NOT NULL AND m.attachmentUrl <> ''",
-            ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId AND m.attachmentUrl IS NOT NULL AND m.attachmentUrl <> ''",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         return query.getResultList().stream().map(this::toChatMessageDomain).collect(Collectors.toList());
     }
 
     public List<ChatMessage> findChatMessagesByGroupId(UUID chatGroupId) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt ASC", ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt ASC",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         return query.getResultList().stream()
-            .map(this::toChatMessageDomain)
-            .collect(Collectors.toList());
+                .map(this::toChatMessageDomain)
+                .collect(Collectors.toList());
     }
 
     public List<ChatMessage> findRecentChatMessages(UUID chatGroupId, int limit) {
         TypedQuery<ChatMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt DESC", ChatMessageEntity.class);
+                "SELECT m FROM ChatMessageEntity m WHERE m.chatGroupId = :chatGroupId ORDER BY m.createdAt DESC",
+                ChatMessageEntity.class);
         query.setParameter("chatGroupId", chatGroupId);
         query.setMaxResults(limit);
         return query.getResultList().stream()
-            .map(this::toChatMessageDomain)
-            .collect(Collectors.toList());
+                .map(this::toChatMessageDomain)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -365,7 +425,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<Conversation> findAllConversations() {
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c", ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c", ConversationEntity.class);
         return query.getResultList().stream().map(this::toConversationDomain).collect(Collectors.toList());
     }
 
@@ -377,8 +437,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<Conversation> findConversationsByParticipantIdPaginated(UUID participantId, int page, int pageSize) {
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC",
-            ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC",
+                ConversationEntity.class);
         query.setParameter("userId", participantId);
         query.setFirstResult(page * pageSize);
         query.setMaxResults(pageSize);
@@ -390,9 +450,10 @@ public class JpaChatRepository implements ChatRepository {
         // Ensure participant1Id < participant2Id for consistent ordering
         UUID p1 = participant1Id.compareTo(participant2Id) < 0 ? participant1Id : participant2Id;
         UUID p2 = participant1Id.compareTo(participant2Id) < 0 ? participant2Id : participant1Id;
-        
+
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :p1 AND c.participant2Id = :p2", ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :p1 AND c.participant2Id = :p2",
+                ConversationEntity.class);
         query.setParameter("p1", p1);
         query.setParameter("p2", p2);
         List<ConversationEntity> results = query.getResultList();
@@ -401,31 +462,33 @@ public class JpaChatRepository implements ChatRepository {
 
     public List<Conversation> findConversationsByUserId(UUID userId) {
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC", ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC",
+                ConversationEntity.class);
         query.setParameter("userId", userId);
         return query.getResultList().stream()
-            .map(this::toConversationDomain)
-            .collect(Collectors.toList());
+                .map(this::toConversationDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<Conversation> findConversationsWithUnreadMessages(UUID userId) {
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c WHERE " +
-            "(c.participant1Id = :userId AND c.unreadCountP1 > 0) OR " +
-            "(c.participant2Id = :userId AND c.unreadCountP2 > 0) " +
-            "ORDER BY c.lastMessageAt DESC", ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c WHERE " +
+                        "(c.participant1Id = :userId AND c.unreadCountP1 > 0) OR " +
+                        "(c.participant2Id = :userId AND c.unreadCountP2 > 0) " +
+                        "ORDER BY c.lastMessageAt DESC",
+                ConversationEntity.class);
         query.setParameter("userId", userId);
         return query.getResultList().stream()
-            .map(this::toConversationDomain)
-            .collect(Collectors.toList());
+                .map(this::toConversationDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
     public long countConversationsByParticipantId(UUID participantId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(c) FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId",
-            Long.class);
+                "SELECT COUNT(c) FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId",
+                Long.class);
         query.setParameter("userId", participantId);
         return query.getSingleResult();
     }
@@ -433,15 +496,15 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countAllConversations() {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(c) FROM ConversationEntity c", Long.class);
+                "SELECT COUNT(c) FROM ConversationEntity c", Long.class);
         return query.getSingleResult();
     }
 
     @Override
     public List<Conversation> findRecentConversationsByParticipantId(UUID participantId, int limit) {
         TypedQuery<ConversationEntity> query = entityManager.createQuery(
-            "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC",
-            ConversationEntity.class);
+                "SELECT c FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId ORDER BY c.lastMessageAt DESC",
+                ConversationEntity.class);
         query.setParameter("userId", participantId);
         query.setMaxResults(limit);
         return query.getResultList().stream().map(this::toConversationDomain).collect(Collectors.toList());
@@ -492,28 +555,31 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesByConversationId(UUID conversationId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt ASC", DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt ASC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         return query.getResultList().stream()
-            .map(this::toDirectMessageDomain)
-            .collect(Collectors.toList());
+                .map(this::toDirectMessageDomain)
+                .collect(Collectors.toList());
     }
 
     public List<DirectMessage> findRecentDirectMessages(UUID conversationId, int limit) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt DESC", DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt DESC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setMaxResults(limit);
         return query.getResultList().stream()
-            .map(this::toDirectMessageDomain)
-            .collect(Collectors.toList());
+                .map(this::toDirectMessageDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<DirectMessage> findDirectMessagesByConversationIdPaginated(UUID conversationId, int page, int pageSize) {
+    public List<DirectMessage> findDirectMessagesByConversationIdPaginated(UUID conversationId, int page,
+            int pageSize) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt ASC",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt ASC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setFirstResult(page * pageSize);
         query.setMaxResults(pageSize);
@@ -523,7 +589,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesBySenderId(UUID senderId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.senderId = :senderId", DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.senderId = :senderId", DirectMessageEntity.class);
         query.setParameter("senderId", senderId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
     }
@@ -531,8 +597,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesByConversationIdAndSenderId(UUID conversationId, UUID senderId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId = :senderId",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId = :senderId",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("senderId", senderId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
@@ -541,17 +607,18 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findUnreadDirectMessagesByConversationId(UUID conversationId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.isRead = false ORDER BY m.createdAt ASC",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.isRead = false ORDER BY m.createdAt ASC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
     }
 
     @Override
-    public List<DirectMessage> findUnreadDirectMessagesByConversationIdAndRecipient(UUID conversationId, UUID recipientId) {
+    public List<DirectMessage> findUnreadDirectMessagesByConversationIdAndRecipient(UUID conversationId,
+            UUID recipientId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId != :recipientId AND m.isRead = false ORDER BY m.createdAt ASC",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId != :recipientId AND m.isRead = false ORDER BY m.createdAt ASC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("recipientId", recipientId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
@@ -560,8 +627,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesByConversationIdAfterDate(UUID conversationId, LocalDateTime date) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt >= :date",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt >= :date",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("date", date);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
@@ -570,8 +637,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesByConversationIdBeforeDate(UUID conversationId, LocalDateTime date) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt <= :date",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt <= :date",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("date", date);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
@@ -581,8 +648,8 @@ public class JpaChatRepository implements ChatRepository {
     public List<DirectMessage> findDirectMessagesByConversationIdBetweenDates(UUID conversationId,
             LocalDateTime startDate, LocalDateTime endDate) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt BETWEEN :startDate AND :endDate",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.createdAt BETWEEN :startDate AND :endDate",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("startDate", startDate);
         query.setParameter("endDate", endDate);
@@ -592,7 +659,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countDirectMessagesByConversationId(UUID conversationId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId", Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId", Long.class);
         query.setParameter("conversationId", conversationId);
         return query.getSingleResult();
     }
@@ -600,7 +667,7 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countDirectMessagesBySenderId(UUID senderId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.senderId = :senderId", Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.senderId = :senderId", Long.class);
         query.setParameter("senderId", senderId);
         return query.getSingleResult();
     }
@@ -608,8 +675,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countUnreadDirectMessagesByConversationId(UUID conversationId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.isRead = false",
-            Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.isRead = false",
+                Long.class);
         query.setParameter("conversationId", conversationId);
         return query.getSingleResult();
     }
@@ -617,8 +684,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countUnreadDirectMessagesByConversationIdAndRecipient(UUID conversationId, UUID recipientId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId != :recipientId AND m.isRead = false",
-            Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId = :conversationId AND m.senderId != :recipientId AND m.isRead = false",
+                Long.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("recipientId", recipientId);
         return query.getSingleResult();
@@ -627,8 +694,8 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findLatestDirectMessagesByConversationId(UUID conversationId, int limit) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt DESC",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId = :conversationId ORDER BY m.createdAt DESC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setMaxResults(limit);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
@@ -643,9 +710,9 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findDirectMessagesByUserId(UUID userId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.senderId = :userId OR m.conversationId IN " +
-            "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId)",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.senderId = :userId OR m.conversationId IN " +
+                        "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId)",
+                DirectMessageEntity.class);
         query.setParameter("userId", userId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
     }
@@ -653,10 +720,11 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public List<DirectMessage> findUnreadDirectMessagesByUserId(UUID userId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE m.conversationId IN " +
-            "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) " +
-            "AND m.senderId != :userId AND m.isRead = false",
-            DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE m.conversationId IN " +
+                        "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) "
+                        +
+                        "AND m.senderId != :userId AND m.isRead = false",
+                DirectMessageEntity.class);
         query.setParameter("userId", userId);
         return query.getResultList().stream().map(this::toDirectMessageDomain).collect(Collectors.toList());
     }
@@ -664,26 +732,28 @@ public class JpaChatRepository implements ChatRepository {
     @Override
     public long countUnreadDirectMessagesByUserId(UUID userId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId IN " +
-            "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) " +
-            "AND m.senderId != :userId AND m.isRead = false",
-            Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE m.conversationId IN " +
+                        "(SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) "
+                        +
+                        "AND m.senderId != :userId AND m.isRead = false",
+                Long.class);
         query.setParameter("userId", userId);
         return query.getSingleResult();
     }
 
     public List<DirectMessage> findUnreadDirectMessages(UUID conversationId, UUID userId) {
         TypedQuery<DirectMessageEntity> query = entityManager.createQuery(
-            "SELECT m FROM DirectMessageEntity m WHERE " +
-            "m.conversationId = :conversationId AND " +
-            "m.senderId != :userId AND " +
-            "m.isRead = false " +
-            "ORDER BY m.createdAt ASC", DirectMessageEntity.class);
+                "SELECT m FROM DirectMessageEntity m WHERE " +
+                        "m.conversationId = :conversationId AND " +
+                        "m.senderId != :userId AND " +
+                        "m.isRead = false " +
+                        "ORDER BY m.createdAt ASC",
+                DirectMessageEntity.class);
         query.setParameter("conversationId", conversationId);
         query.setParameter("userId", userId);
         return query.getResultList().stream()
-            .map(this::toDirectMessageDomain)
-            .collect(Collectors.toList());
+                .map(this::toDirectMessageDomain)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -696,10 +766,12 @@ public class JpaChatRepository implements ChatRepository {
 
     public long countUnreadDirectMessages(UUID userId) {
         TypedQuery<Long> query = entityManager.createQuery(
-            "SELECT COUNT(m) FROM DirectMessageEntity m WHERE " +
-            "m.conversationId IN (SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) AND " +
-            "m.senderId != :userId AND " +
-            "m.isRead = false", Long.class);
+                "SELECT COUNT(m) FROM DirectMessageEntity m WHERE " +
+                        "m.conversationId IN (SELECT c.id FROM ConversationEntity c WHERE c.participant1Id = :userId OR c.participant2Id = :userId) AND "
+                        +
+                        "m.senderId != :userId AND " +
+                        "m.isRead = false",
+                Long.class);
         query.setParameter("userId", userId);
         return query.getSingleResult();
     }
@@ -711,14 +783,13 @@ public class JpaChatRepository implements ChatRepository {
             referenceType = ChatGroup.ReferenceType.valueOf(entity.getReferenceType());
         }
         return new ChatGroup(
-            entity.getId(),
-            entity.getName(),
-            referenceType,
-            entity.getReferenceId(),
-            entity.getCreatedBy(),
-            entity.isActive(),
-            entity.getCreatedAt()
-        );
+                entity.getId(),
+                entity.getName(),
+                referenceType,
+                entity.getReferenceId(),
+                entity.getCreatedBy(),
+                entity.isActive(),
+                entity.getCreatedAt());
     }
 
     private ChatGroupEntity toChatGroupEntity(ChatGroup domain) {
@@ -739,14 +810,13 @@ public class JpaChatRepository implements ChatRepository {
             messageType = ChatMessage.MessageType.valueOf(entity.getMessageType());
         }
         return new ChatMessage(
-            entity.getId(),
-            entity.getChatGroupId(),
-            entity.getSenderId(),
-            entity.getMessage(),
-            messageType,
-            entity.getAttachmentUrl(),
-            entity.getCreatedAt()
-        );
+                entity.getId(),
+                entity.getChatGroupId(),
+                entity.getSenderId(),
+                entity.getMessage(),
+                messageType,
+                entity.getAttachmentUrl(),
+                entity.getCreatedAt());
     }
 
     private ChatMessageEntity toChatMessageEntity(ChatMessage domain) {
@@ -763,14 +833,13 @@ public class JpaChatRepository implements ChatRepository {
 
     private Conversation toConversationDomain(ConversationEntity entity) {
         return new Conversation(
-            entity.getId(),
-            entity.getParticipant1Id(),
-            entity.getParticipant2Id(),
-            entity.getLastMessageAt(),
-            entity.getUnreadCountP1(),
-            entity.getUnreadCountP2(),
-            entity.getCreatedAt()
-        );
+                entity.getId(),
+                entity.getParticipant1Id(),
+                entity.getParticipant2Id(),
+                entity.getLastMessageAt(),
+                entity.getUnreadCountP1(),
+                entity.getUnreadCountP2(),
+                entity.getCreatedAt());
     }
 
     private ConversationEntity toConversationEntity(Conversation domain) {
@@ -787,14 +856,13 @@ public class JpaChatRepository implements ChatRepository {
 
     private DirectMessage toDirectMessageDomain(DirectMessageEntity entity) {
         return new DirectMessage(
-            entity.getId(),
-            entity.getConversationId(),
-            entity.getSenderId(),
-            entity.getMessage(),
-            entity.isRead(),
-            entity.getCreatedAt(),
-            entity.getReadAt()
-        );
+                entity.getId(),
+                entity.getConversationId(),
+                entity.getSenderId(),
+                entity.getMessage(),
+                entity.isRead(),
+                entity.getCreatedAt(),
+                entity.getReadAt());
     }
 
     private DirectMessageEntity toDirectMessageEntity(DirectMessage domain) {
@@ -807,5 +875,22 @@ public class JpaChatRepository implements ChatRepository {
         entity.setCreatedAt(domain.getCreatedAt());
         entity.setReadAt(domain.getReadAt());
         return entity;
+    }
+
+    private ChatGroupMember toChatGroupMemberDomain(ChatGroupMemberEntity entity) {
+        return new ChatGroupMember(
+                entity.getId(),
+                entity.getChatGroupId(),
+                entity.getUserId(),
+                ChatGroupMember.Role.valueOf(entity.getRole()),
+                entity.getJoinedAt());
+    }
+
+    private ChatGroupMemberEntity toChatGroupMemberEntity(ChatGroupMember domain) {
+        return new ChatGroupMemberEntity(
+                domain.getId(),
+                domain.getChatGroupId(),
+                domain.getUserId(),
+                domain.getRole().name());
     }
 }

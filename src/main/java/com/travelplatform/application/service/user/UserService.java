@@ -121,6 +121,17 @@ public class UserService {
 
         userMapper.updateProfileFromRequest(request, profile);
 
+        // Security: Only Suppliers or Association Managers can set bank details
+        if (request.getBankName() != null || request.getBankAccountIban() != null || request.getBankAccountBic() != null) {
+            if (user.getRole() != UserRole.SUPPLIER_SUBSCRIBER && user.getRole() != UserRole.ASSOCIATION_MANAGER) {
+                // Mandatory restriction as per RBAC v3.0 strategy
+                profile.setBankName(null);
+                profile.setBankAccountIban(null);
+                profile.setBankAccountBic(null);
+                throw new IllegalArgumentException("Only Suppliers and Association Managers can configure payout bank details");
+            }
+        }
+
         // Save updated user
         userRepository.save(user);
 

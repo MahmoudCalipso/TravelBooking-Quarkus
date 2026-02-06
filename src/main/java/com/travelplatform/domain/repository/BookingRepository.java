@@ -322,6 +322,55 @@ public interface BookingRepository {
     Optional<BookingPayment> findPaymentByTransactionId(String transactionId);
 
     /**
+     * Finds booking payment by payment ID.
+     *
+     * @param paymentId payment ID
+     * @return optional payment
+     */
+    Optional<BookingPayment> findPaymentById(UUID paymentId);
+
+    /**
+     * Finds payments within a date range (inclusive).
+     *
+     * @param startDate start date (nullable for open start)
+     * @param endDate   end date (nullable for open end)
+     * @return list of payments
+     */
+    List<BookingPayment> findPaymentsByDateRange(LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Finds payments by status within a date range (inclusive).
+     *
+     * @param status    payment status to filter
+     * @param startDate start date (nullable)
+     * @param endDate   end date (nullable)
+     * @return list of payments
+     */
+    List<BookingPayment> findPaymentsByStatusAndDateRange(PaymentStatus status, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Finds payments by a set of statuses with optional date filtering and pagination.
+     *
+     * @param statuses  statuses to include (nullable or empty for all)
+     * @param startDate start date (nullable)
+     * @param endDate   end date (nullable)
+     * @param page      page number (0-indexed)
+     * @param size      page size
+     * @return list of payments
+     */
+    List<BookingPayment> findPayments(List<PaymentStatus> statuses, LocalDate startDate, LocalDate endDate, int page, int size);
+
+    /**
+     * Counts payments matching the provided filters.
+     *
+     * @param statuses  statuses to include (nullable or empty for all)
+     * @param startDate start date (nullable)
+     * @param endDate   end date (nullable)
+     * @return total count
+     */
+    long countPayments(List<PaymentStatus> statuses, LocalDate startDate, LocalDate endDate);
+
+    /**
      * Finds payments by status.
      *
      * @param status payment status
@@ -336,6 +385,14 @@ public interface BookingRepository {
      * @return list of payments with the method
      */
     List<BookingPayment> findPaymentsByPaymentMethod(String paymentMethod);
+
+    /**
+     * Saves or updates a booking payment.
+     *
+     * @param payment booking payment
+     * @return saved payment
+     */
+    BookingPayment savePayment(BookingPayment payment);
 
     /**
      * Counts payments by booking.

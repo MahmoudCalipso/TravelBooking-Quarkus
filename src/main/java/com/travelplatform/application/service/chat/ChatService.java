@@ -3,6 +3,8 @@ package com.travelplatform.application.service.chat;
 import com.travelplatform.application.dto.response.chat.MessageResponse;
 import com.travelplatform.application.mapper.ChatMapper;
 import com.travelplatform.domain.model.chat.ChatGroup;
+import com.travelplatform.domain.model.chat.ChatGroupMember;
+
 import com.travelplatform.domain.model.chat.ChatMessage;
 import com.travelplatform.domain.model.chat.Conversation;
 import com.travelplatform.domain.model.chat.DirectMessage;
@@ -51,6 +53,10 @@ public class ChatService {
         // Save chat group
         chatRepository.saveChatGroup(chatGroup);
 
+        // Add creator as OWNER
+        ChatGroupMember member = new ChatGroupMember(chatGroup.getId(), userId, ChatGroupMember.Role.OWNER);
+        chatRepository.saveChatGroupMember(member);
+
         return chatGroup.getId();
     }
 
@@ -77,6 +83,11 @@ public class ChatService {
     @Transactional
     public MessageResponse sendGroupMessage(UUID userId, UUID chatGroupId, String message, String messageType,
             String attachmentUrl) {
+        // Verify user is member of chat group
+        if (!chatRepository.isMember(chatGroupId, userId)) {
+            throw new IllegalArgumentException("You are not a member of this chat group");
+        }
+
         // Verify chat group exists
         ChatGroup chatGroup = chatRepository.findChatGroupById(chatGroupId)
                 .orElseThrow(() -> new IllegalArgumentException("Chat group not found"));
@@ -99,7 +110,12 @@ public class ChatService {
      * Get chat group messages.
      */
     @Transactional
-    public List<MessageResponse> getChatGroupMessages(UUID chatGroupId, int page, int pageSize) {
+    public List<MessageResponse> getChatGroupMessages(UUID userId, UUID chatGroupId, int page, int pageSize) {
+        // Verify user is member of chat group
+        if (!chatRepository.isMember(chatGroupId, userId)) {
+            throw new IllegalArgumentException("You are not a member of this chat group");
+        }
+
         List<ChatMessage> messages = chatRepository.findChatMessagesByGroup(chatGroupId, page, pageSize);
         return chatMapper.toMessageResponseList(messages);
     }
@@ -108,30 +124,49 @@ public class ChatService {
      * Add member to chat group.
      */
     @Transactional
-    public void addGroupMember(UUID chatGroupId, UUID userId) {
-        // Verify chat group exists
-        ChatGroup chatGroup = chatRepository.findChatGroupById(chatGroupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chat group not found"));
+    public void addGroupMember(UUID adminId, UUID chatGroupId, UUID userId) {
+        // Verify executor is admin/owner of chat group
+        ChatGroupMember executor = chatRepository.findChatGroupMember(chatGroupId, adminId)
+                .orElseThrow(() -> new IllegalArgumentException("You are not a member of this chat group"));
+
+        if (!executor.canManageMembers()) {
+            throw new IllegalArgumentException("Only group admins or owners can add members");
+        }
 
         // Verify user exists
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Add member (implementation depends on your data model)
-        // For now, this is a placeholder
+        // If already member, do nothing
+        if (chatRepository.isMember(chatGroupId, userId)) {
+            return;
+        }
+
+        // Add member
+        ChatGroupMember member = new ChatGroupMember(chatGroupId, userId, ChatGroupMember.Role.MEMBER);
+        chatRepository.saveChatGroupMember(member);
     }
 
     /**
      * Remove member from chat group.
      */
     @Transactional
-    public void removeGroupMember(UUID chatGroupId, UUID userId) {
-        // Verify chat group exists
-        ChatGroup chatGroup = chatRepository.findChatGroupById(chatGroupId)
-                .orElseThrow(() -> new IllegalArgumentException("Chat group not found"));
+    public void removeGroupMember(UUID adminId, UUID chatGroupId, UUID userId) {
+        // If removing self
+        if (adminId.equals(userId)) {
+            chatRepository.deleteChatGroupMember(chatGroupId, userId);
+            return;
+        }
 
-        // Remove member (implementation depends on your data model)
-        // For now, this is a placeholder
+        // Verify executor is admin/owner of chat group
+        ChatGroupMember executor = chatRepository.findChatGroupMember(chatGroupId, adminId)
+                .orElseThrow(() -> new IllegalArgumentException("You are not a member of this chat group"));
+
+        if (!executor.canManageMembers()) {
+            throw new IllegalArgumentException("Only group admins or owners can remove members");
+        }
+
+        chatRepository.deleteChatGroupMember(chatGroupId, userId);
     }
 
     /**
@@ -218,7 +253,16 @@ public class ChatService {
      * Get conversation messages.
      */
     @Transactional
-    public List<MessageResponse> getConversationMessages(UUID conversationId, int page, int pageSize) {
+    public List<MessageResponse> getConversationMessages(UUID userId, UUID conversationId, int page, int pageSize) {
+        // Verify conversation exists
+        Conversation conversation = chatRepository.findConversationById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+
+        // Verify user is part of conversation
+        if (!conversation.getParticipant1Id().equals(userId) && !conversation.getParticipant2Id().equals(userId)) {
+            throw new IllegalArgumentException("You are not part of this conversation");
+        }
+
         List<DirectMessage> messages = chatRepository.findDirectMessagesByConversation(conversationId, page, pageSize);
         return chatMapper.toDirectMessageResponseList(messages);
     }
@@ -238,7 +282,8 @@ public class ChatService {
         }
 
         // Mark all unread messages as read
-        List<DirectMessage> unreadMessages = chatRepository.findUnreadDirectMessagesByConversationIdAndRecipient(conversationId, userId);
+        List<DirectMessage> unreadMessages = chatRepository
+                .findUnreadDirectMessagesByConversationIdAndRecipient(conversationId, userId);
         for (DirectMessage message : unreadMessages) {
             message.markAsRead();
             chatRepository.saveDirectMessage(message);

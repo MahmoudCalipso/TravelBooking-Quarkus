@@ -100,6 +100,12 @@ public class BookingEntity {
     @Column(name = "guest_message_to_host", columnDefinition = "TEXT")
     private String guestMessageToHost;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -332,6 +338,22 @@ public class BookingEntity {
 
     public void setGuestMessageToHost(String guestMessageToHost) {
         this.guestMessageToHost = guestMessageToHost;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public LocalDateTime getCreatedAt() {

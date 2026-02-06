@@ -20,6 +20,10 @@ public class ProfileResponse {
     private String phoneNumber;
     private String drivingLicenseCategory;
     private String occupation;
+    private String stripeConnectAccountId;
+    private String bankName;
+    private String bankAccountIban;
+    private String bankAccountBic;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -111,6 +115,38 @@ public class ProfileResponse {
 
     public void setOccupation(String occupation) {
         this.occupation = occupation;
+    }
+
+    public String getStripeConnectAccountId() {
+        return stripeConnectAccountId;
+    }
+
+    public void setStripeConnectAccountId(String stripeConnectAccountId) {
+        this.stripeConnectAccountId = stripeConnectAccountId;
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public String getBankAccountIban() {
+        return bankAccountIban;
+    }
+
+    public void setBankAccountIban(String bankAccountIban) {
+        this.bankAccountIban = bankAccountIban;
+    }
+
+    public String getBankAccountBic() {
+        return bankAccountBic;
+    }
+
+    public void setBankAccountBic(String bankAccountBic) {
+        this.bankAccountBic = bankAccountBic;
     }
 
     public LocalDateTime getCreatedAt() {

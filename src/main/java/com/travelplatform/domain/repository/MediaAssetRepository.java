@@ -10,7 +10,8 @@ import java.util.UUID;
  * Repository interface for MediaAsset domain entity.
  * Defines the contract for media asset data access operations.
  * 
- * Media assets are stored in Firebase Storage, with only metadata tracked in the database.
+ * Media assets are stored in Firebase Storage, with only metadata tracked in
+ * the database.
  */
 public interface MediaAssetRepository {
 
@@ -41,7 +42,7 @@ public interface MediaAssetRepository {
     /**
      * Find all media assets for a specific owner and owner type.
      * 
-     * @param ownerId the owner's ID
+     * @param ownerId   the owner's ID
      * @param ownerType the type of owner (USER, ACCOMMODATION, etc.)
      * @return list of media assets for the specified owner
      */
@@ -58,12 +59,13 @@ public interface MediaAssetRepository {
     /**
      * Find all media assets for a specific owner, owner type, and media type.
      * 
-     * @param ownerId the owner's ID
+     * @param ownerId   the owner's ID
      * @param ownerType the type of owner
      * @param mediaType the media type
      * @return list of matching media assets
      */
-    List<MediaAsset> findByOwnerIdAndOwnerTypeAndMediaType(UUID ownerId, MediaAsset.OwnerType ownerType, MediaAsset.MediaType mediaType);
+    List<MediaAsset> findByOwnerIdAndOwnerTypeAndMediaType(UUID ownerId, MediaAsset.OwnerType ownerType,
+            MediaAsset.MediaType mediaType);
 
     /**
      * Find a media asset by its Firebase storage path.
@@ -72,6 +74,14 @@ public interface MediaAssetRepository {
      * @return Optional containing the media asset if found
      */
     Optional<MediaAsset> findByFirebasePath(String firebasePath);
+
+    /**
+     * Find a media asset by its public URL.
+     * 
+     * @param publicUrl the public URL
+     * @return Optional containing the media asset if found
+     */
+    Optional<MediaAsset> findByPublicUrl(String publicUrl);
 
     /**
      * Find all media assets.
@@ -97,7 +107,7 @@ public interface MediaAssetRepository {
     /**
      * Delete all media assets for a specific owner and owner type.
      * 
-     * @param ownerId the owner's ID
+     * @param ownerId   the owner's ID
      * @param ownerType the type of owner
      */
     void deleteByOwnerIdAndOwnerType(UUID ownerId, MediaAsset.OwnerType ownerType);
@@ -121,7 +131,7 @@ public interface MediaAssetRepository {
     /**
      * Count the total number of media assets for a specific owner and owner type.
      * 
-     * @param ownerId the owner's ID
+     * @param ownerId   the owner's ID
      * @param ownerType the type of owner
      * @return the count of media assets
      */

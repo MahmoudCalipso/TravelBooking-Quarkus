@@ -67,6 +67,12 @@ public class EventEntity {
     @Column(name = "status", nullable = false, length = 50)
     private ApprovalStatus status;
 
+    @Column(name = "deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -213,6 +219,22 @@ public class EventEntity {
 
     public void setStatus(ApprovalStatus status) {
         this.status = status;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        this.deleted = deleted;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public LocalDateTime getCreatedAt() {

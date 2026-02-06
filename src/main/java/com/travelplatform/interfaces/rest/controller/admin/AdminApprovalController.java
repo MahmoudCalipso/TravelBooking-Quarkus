@@ -8,8 +8,8 @@ import com.travelplatform.application.dto.response.event.EventResponse;
 import com.travelplatform.application.dto.response.reel.ReelResponse;
 import com.travelplatform.application.dto.response.review.ReviewResponse;
 import com.travelplatform.application.service.admin.AdminApprovalService;
-import io.quarkus.security.Authenticated;
-import jakarta.annotation.security.RolesAllowed;
+import com.travelplatform.domain.enums.UserRole;
+import com.travelplatform.infrastructure.security.authorization.Authorized;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -24,18 +24,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
  * REST controller for admin approval operations.
- * Handles content approval workflow for accommodations, reels, events, and reviews.
+ * Handles content approval workflow for accommodations, reels, events, and
+ * reviews.
  */
 @Path("/api/v1/admin/approvals")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Admin Approvals", description = "Admin content approval management")
-@RolesAllowed("SUPER_ADMIN")
+@Authorized(roles = { UserRole.SUPER_ADMIN })
 public class AdminApprovalController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminApprovalController.class);
@@ -46,18 +46,17 @@ public class AdminApprovalController {
     /**
      * Get pending accommodations.
      *
-     * @param page The page number
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of pending accommodations
      */
     @GET
     @Path("/accommodations/pending")
-    @Authenticated
     @Operation(summary = "Get pending accommodations", description = "Get accommodations awaiting approval")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Pending accommodations retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Pending accommodations retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getPendingAccommodations(
             @QueryParam("page") @DefaultValue("1") int page,
@@ -66,15 +65,14 @@ public class AdminApprovalController {
             log.info("Get pending accommodations request");
 
             int pageIndex = toPageIndex(page);
-            List<AccommodationResponse> accommodations =
-                    adminApprovalService.getPendingAccommodations(pageIndex, pageSize);
+            List<AccommodationResponse> accommodations = adminApprovalService.getPendingAccommodations(pageIndex,
+                    pageSize);
             long totalItems = adminApprovalService.getPendingAccommodationsCount();
 
-            PageResponse<AccommodationResponse> response =
-                    toPageResponse(accommodations, page, pageSize, totalItems);
+            PageResponse<AccommodationResponse> response = toPageResponse(accommodations, page, pageSize, totalItems);
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting pending accommodations", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -91,13 +89,12 @@ public class AdminApprovalController {
      */
     @PUT
     @Path("/accommodations/{accommodationId}/approve")
-    @Authenticated
     @Operation(summary = "Approve accommodation", description = "Approve an accommodation")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Accommodation approved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Accommodation not found")
+            @APIResponse(responseCode = "200", description = "Accommodation approved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Accommodation not found")
     })
     public Response approveAccommodation(
             @Context SecurityContext securityContext,
@@ -107,11 +104,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.approveAccommodation(adminId, accommodationId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Accommodation approved successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Accommodation approval failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -129,18 +126,17 @@ public class AdminApprovalController {
      * Reject accommodation.
      *
      * @param accommodationId The accommodation ID
-     * @param reason The rejection reason
+     * @param reason          The rejection reason
      * @return Success response
      */
     @PUT
     @Path("/accommodations/{accommodationId}/reject")
-    @Authenticated
     @Operation(summary = "Reject accommodation", description = "Reject an accommodation")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Accommodation rejected successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Accommodation not found")
+            @APIResponse(responseCode = "200", description = "Accommodation rejected successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Accommodation not found")
     })
     public Response rejectAccommodation(
             @Context SecurityContext securityContext,
@@ -151,11 +147,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.rejectAccommodation(adminId, accommodationId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Accommodation rejected successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Accommodation rejection failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -172,18 +168,17 @@ public class AdminApprovalController {
     /**
      * Get pending reels.
      *
-     * @param page The page number
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of pending reels
      */
     @GET
     @Path("/reels/pending")
-    @Authenticated
     @Operation(summary = "Get pending reels", description = "Get reels awaiting approval")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Pending reels retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Pending reels retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getPendingReels(
             @QueryParam("page") @DefaultValue("1") int page,
@@ -194,11 +189,10 @@ public class AdminApprovalController {
             int pageIndex = toPageIndex(page);
             List<ReelResponse> reels = adminApprovalService.getPendingReels(pageIndex, pageSize);
             long totalItems = adminApprovalService.getPendingReelsCount();
-            PageResponse<ReelResponse> response =
-                    toPageResponse(reels, page, pageSize, totalItems);
+            PageResponse<ReelResponse> response = toPageResponse(reels, page, pageSize, totalItems);
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting pending reels", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -215,13 +209,12 @@ public class AdminApprovalController {
      */
     @PUT
     @Path("/reels/{reelId}/approve")
-    @Authenticated
     @Operation(summary = "Approve reel", description = "Approve a reel")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reel approved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Reel not found")
+            @APIResponse(responseCode = "200", description = "Reel approved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Reel not found")
     })
     public Response approveReel(
             @Context SecurityContext securityContext,
@@ -231,11 +224,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.approveReel(adminId, reelId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Reel approved successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Reel approval failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -258,13 +251,12 @@ public class AdminApprovalController {
      */
     @PUT
     @Path("/reels/{reelId}/reject")
-    @Authenticated
     @Operation(summary = "Reject reel", description = "Reject a reel")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Reel rejected successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Reel not found")
+            @APIResponse(responseCode = "200", description = "Reel rejected successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Reel not found")
     })
     public Response rejectReel(
             @Context SecurityContext securityContext,
@@ -275,11 +267,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.rejectReel(adminId, reelId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Reel rejected successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Reel rejection failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -296,18 +288,17 @@ public class AdminApprovalController {
     /**
      * Get pending events.
      *
-     * @param page The page number
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of pending events
      */
     @GET
     @Path("/events/pending")
-    @Authenticated
     @Operation(summary = "Get pending events", description = "Get events awaiting approval")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Pending events retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Pending events retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getPendingEvents(
             @QueryParam("page") @DefaultValue("1") int page,
@@ -318,11 +309,10 @@ public class AdminApprovalController {
             int pageIndex = toPageIndex(page);
             List<EventResponse> events = adminApprovalService.getPendingEvents(pageIndex, pageSize);
             long totalItems = adminApprovalService.getPendingEventsCount();
-            PageResponse<EventResponse> response =
-                    toPageResponse(events, page, pageSize, totalItems);
+            PageResponse<EventResponse> response = toPageResponse(events, page, pageSize, totalItems);
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting pending events", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -339,13 +329,12 @@ public class AdminApprovalController {
      */
     @PUT
     @Path("/events/{eventId}/approve")
-    @Authenticated
     @Operation(summary = "Approve event", description = "Approve an event")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Event approved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Event not found")
+            @APIResponse(responseCode = "200", description = "Event approved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Event not found")
     })
     public Response approveEvent(
             @Context SecurityContext securityContext,
@@ -355,11 +344,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.approveEvent(adminId, eventId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event approved successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Event approval failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -377,18 +366,17 @@ public class AdminApprovalController {
      * Reject event.
      *
      * @param eventId The event ID
-     * @param reason The rejection reason
+     * @param reason  The rejection reason
      * @return Success response
      */
     @PUT
     @Path("/events/{eventId}/reject")
-    @Authenticated
     @Operation(summary = "Reject event", description = "Reject an event")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Event rejected successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Event not found")
+            @APIResponse(responseCode = "200", description = "Event rejected successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Event not found")
     })
     public Response rejectEvent(
             @Context SecurityContext securityContext,
@@ -399,11 +387,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.rejectEvent(adminId, eventId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Event rejected successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Event rejection failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -420,18 +408,17 @@ public class AdminApprovalController {
     /**
      * Get pending reviews.
      *
-     * @param page The page number
+     * @param page     The page number
      * @param pageSize The page size
      * @return Paginated list of pending reviews
      */
     @GET
     @Path("/reviews/pending")
-    @Authenticated
     @Operation(summary = "Get pending reviews", description = "Get reviews awaiting approval")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Pending reviews retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Pending reviews retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getPendingReviews(
             @QueryParam("page") @DefaultValue("1") int page,
@@ -442,11 +429,10 @@ public class AdminApprovalController {
             int pageIndex = toPageIndex(page);
             List<ReviewResponse> reviews = adminApprovalService.getPendingReviews(pageIndex, pageSize);
             long totalItems = adminApprovalService.getPendingReviewsCount();
-            PageResponse<ReviewResponse> response =
-                    toPageResponse(reviews, page, pageSize, totalItems);
+            PageResponse<ReviewResponse> response = toPageResponse(reviews, page, pageSize, totalItems);
 
             return Response.ok().entity(response).build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting pending reviews", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -463,13 +449,12 @@ public class AdminApprovalController {
      */
     @PUT
     @Path("/reviews/{reviewId}/approve")
-    @Authenticated
     @Operation(summary = "Approve review", description = "Approve a review")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Review approved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Review not found")
+            @APIResponse(responseCode = "200", description = "Review approved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Review not found")
     })
     public Response approveReview(
             @Context SecurityContext securityContext,
@@ -479,11 +464,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.approveReview(adminId, reviewId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review approved successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Review approval failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -501,18 +486,17 @@ public class AdminApprovalController {
      * Reject review.
      *
      * @param reviewId The review ID
-     * @param reason The rejection reason
+     * @param reason   The rejection reason
      * @return Success response
      */
     @PUT
     @Path("/reviews/{reviewId}/reject")
-    @Authenticated
     @Operation(summary = "Reject review", description = "Reject a review")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Review rejected successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions"),
-        @APIResponse(responseCode = "404", description = "Review not found")
+            @APIResponse(responseCode = "200", description = "Review rejected successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions"),
+            @APIResponse(responseCode = "404", description = "Review not found")
     })
     public Response rejectReview(
             @Context SecurityContext securityContext,
@@ -523,11 +507,11 @@ public class AdminApprovalController {
 
             UUID adminId = UUID.fromString(securityContext.getUserPrincipal().getName());
             adminApprovalService.rejectReview(adminId, reviewId);
-            
+
             return Response.ok()
                     .entity(new SuccessResponse<>(null, "Review rejected successfully"))
                     .build();
-                    
+
         } catch (IllegalArgumentException e) {
             log.error("Review rejection failed: {}", e.getMessage());
             return Response.status(Response.Status.NOT_FOUND)
@@ -548,12 +532,11 @@ public class AdminApprovalController {
      */
     @GET
     @Path("/statistics")
-    @Authenticated
     @Operation(summary = "Get approval queue statistics", description = "Get statistics for approval queues")
     @APIResponses(value = {
-        @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
-        @APIResponse(responseCode = "401", description = "Not authenticated"),
-        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+            @APIResponse(responseCode = "200", description = "Statistics retrieved successfully"),
+            @APIResponse(responseCode = "401", description = "Not authenticated"),
+            @APIResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public Response getApprovalQueueStatistics() {
         try {
@@ -564,7 +547,7 @@ public class AdminApprovalController {
             return Response.ok()
                     .entity(new SuccessResponse<>(summary, "Statistics retrieved successfully"))
                     .build();
-                    
+
         } catch (Exception e) {
             log.error("Unexpected error getting approval queue statistics", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)

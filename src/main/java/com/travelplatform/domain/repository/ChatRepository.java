@@ -102,6 +102,34 @@ public interface ChatRepository {
      */
     long countAllChatGroups();
 
+    // ==================== Chat Group Membership Methods ====================
+
+    /**
+     * Saves or updates a chat group member.
+     */
+    com.travelplatform.domain.model.chat.ChatGroupMember saveChatGroupMember(
+            com.travelplatform.domain.model.chat.ChatGroupMember member);
+
+    /**
+     * Finds a member of a chat group.
+     */
+    Optional<com.travelplatform.domain.model.chat.ChatGroupMember> findChatGroupMember(UUID chatGroupId, UUID userId);
+
+    /**
+     * Finds all members of a chat group.
+     */
+    List<com.travelplatform.domain.model.chat.ChatGroupMember> findChatGroupMembersByGroupId(UUID chatGroupId);
+
+    /**
+     * Deletes a member from a chat group.
+     */
+    void deleteChatGroupMember(UUID chatGroupId, UUID userId);
+
+    /**
+     * Checks if a user is a member of a chat group.
+     */
+    boolean isMember(UUID chatGroupId, UUID userId);
+
     // ==================== Chat Message Methods ====================
 
     /**

@@ -5,15 +5,11 @@ import com.travelplatform.application.dto.response.booking.BookingFeeConfigRespo
 import com.travelplatform.application.dto.response.common.ErrorResponse;
 import com.travelplatform.application.dto.response.common.SuccessResponse;
 import com.travelplatform.application.service.booking.BookingFeeConfigService;
-import io.quarkus.security.Authenticated;
-import jakarta.annotation.security.RolesAllowed;
+import com.travelplatform.domain.enums.UserRole;
+import com.travelplatform.infrastructure.security.authorization.Authorized;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -34,7 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Tag(name = "Admin Booking Fees", description = "Booking fee configuration management")
-@RolesAllowed("SUPER_ADMIN")
+@Authorized(roles = { UserRole.SUPER_ADMIN })
 public class AdminBookingFeeController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminBookingFeeController.class);
@@ -43,7 +39,6 @@ public class AdminBookingFeeController {
     BookingFeeConfigService bookingFeeConfigService;
 
     @GET
-    @Authenticated
     @Operation(summary = "Get booking fee configuration", description = "Get current booking fee configuration")
     @APIResponses(value = {
             @APIResponse(responseCode = "200", description = "Configuration retrieved successfully"),
@@ -64,7 +59,6 @@ public class AdminBookingFeeController {
     }
 
     @PUT
-    @Authenticated
     @Operation(summary = "Update booking fee configuration", description = "Update booking fee configuration")
     @APIResponses(value = {
             @APIResponse(responseCode = "200", description = "Configuration updated successfully"),

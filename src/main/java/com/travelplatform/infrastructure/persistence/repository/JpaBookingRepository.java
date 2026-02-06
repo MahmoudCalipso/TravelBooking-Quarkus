@@ -509,14 +509,21 @@ public class JpaBookingRepository implements BookingRepository {
     @Override
     public Optional<com.travelplatform.domain.model.booking.BookingPayment> findPaymentByTransactionId(String transactionId) {
         TypedQuery<com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity> query = entityManager.createQuery(
-            "SELECT p FROM BookingPaymentEntity p WHERE p.transactionId = :transactionId",
-            com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity.class);
+                "SELECT p FROM BookingPaymentEntity p WHERE p.transactionId = :transactionId",
+                com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity.class);
         query.setParameter("transactionId", transactionId);
         List<com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity> results = query.getResultList();
         if (results.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(toPaymentDomain(results.get(0)));
+    }
+
+    @Override
+    public Optional<com.travelplatform.domain.model.booking.BookingPayment> findPaymentById(UUID paymentId) {
+        com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity entity =
+                entityManager.find(com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity.class, paymentId);
+        return entity != null ? Optional.of(toPaymentDomain(entity)) : Optional.empty();
     }
 
     @Override
@@ -529,12 +536,67 @@ public class JpaBookingRepository implements BookingRepository {
     }
 
     @Override
+    public List<com.travelplatform.domain.model.booking.BookingPayment> findPaymentsByDateRange(LocalDate startDate, LocalDate endDate) {
+        return findPayments(List.of(), startDate, endDate, 0, Integer.MAX_VALUE);
+    }
+
+    @Override
+    public List<com.travelplatform.domain.model.booking.BookingPayment> findPaymentsByStatusAndDateRange(PaymentStatus status, LocalDate startDate, LocalDate endDate) {
+        return findPayments(status != null ? List.of(status) : List.of(), startDate, endDate, 0, Integer.MAX_VALUE);
+    }
+
+    @Override
+    public List<com.travelplatform.domain.model.booking.BookingPayment> findPayments(List<PaymentStatus> statuses, LocalDate startDate, LocalDate endDate, int page, int size) {
+        StringBuilder jpql = new StringBuilder("SELECT p FROM BookingPaymentEntity p WHERE p.createdAt BETWEEN :start AND :end");
+        if (statuses != null && !statuses.isEmpty()) {
+            jpql.append(" AND p.status IN :statuses");
+        }
+        TypedQuery<com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity> query =
+                entityManager.createQuery(jpql.toString(), com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity.class);
+        query.setParameter("start", startDateTime(startDate));
+        query.setParameter("end", endDateTime(endDate));
+        if (statuses != null && !statuses.isEmpty()) {
+            query.setParameter("statuses", statuses);
+        }
+        query.setFirstResult(page * size);
+        query.setMaxResults(size);
+        return query.getResultList().stream().map(this::toPaymentDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    public long countPayments(List<PaymentStatus> statuses, LocalDate startDate, LocalDate endDate) {
+        StringBuilder jpql = new StringBuilder("SELECT COUNT(p) FROM BookingPaymentEntity p WHERE p.createdAt BETWEEN :start AND :end");
+        if (statuses != null && !statuses.isEmpty()) {
+            jpql.append(" AND p.status IN :statuses");
+        }
+        TypedQuery<Long> query = entityManager.createQuery(jpql.toString(), Long.class);
+        query.setParameter("start", startDateTime(startDate));
+        query.setParameter("end", endDateTime(endDate));
+        if (statuses != null && !statuses.isEmpty()) {
+            query.setParameter("statuses", statuses);
+        }
+        return query.getSingleResult();
+    }
+
+    @Override
     public List<com.travelplatform.domain.model.booking.BookingPayment> findPaymentsByPaymentMethod(String paymentMethod) {
         TypedQuery<com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity> query = entityManager.createQuery(
             "SELECT p FROM BookingPaymentEntity p WHERE p.paymentMethod = :paymentMethod",
             com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity.class);
         query.setParameter("paymentMethod", paymentMethod);
         return query.getResultList().stream().map(this::toPaymentDomain).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public com.travelplatform.domain.model.booking.BookingPayment savePayment(com.travelplatform.domain.model.booking.BookingPayment payment) {
+        com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity entity = toPaymentEntity(payment);
+        if (entity.getId() == null) {
+            entityManager.persist(entity);
+        } else {
+            entity = entityManager.merge(entity);
+        }
+        return toPaymentDomain(entity);
     }
 
     @Override
@@ -802,6 +864,27 @@ public class JpaBookingRepository implements BookingRepository {
         );
     }
 
+    private com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity toPaymentEntity(
+            com.travelplatform.domain.model.booking.BookingPayment payment) {
+        com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity entity =
+                new com.travelplatform.infrastructure.persistence.entity.BookingPaymentEntity();
+        entity.setId(payment.getId());
+        entity.setBookingId(payment.getBookingId());
+        entity.setAmount(payment.getAmount() != null ? payment.getAmount().getAmount() : BigDecimal.ZERO);
+        entity.setCurrency(payment.getAmount() != null ? payment.getAmount().getCurrencyCode() : payment.getCurrency());
+        entity.setPaymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : null);
+        entity.setPaymentProvider(payment.getPaymentProvider());
+        entity.setTransactionId(payment.getTransactionId());
+        entity.setStatus(payment.getStatus());
+        entity.setFailureReason(payment.getFailureReason());
+        entity.setRefundAmount(payment.getRefundAmount() != null ? payment.getRefundAmount().getAmount() : null);
+        entity.setRefundReason(payment.getRefundReason());
+        entity.setCreatedAt(payment.getCreatedAt());
+        entity.setPaidAt(payment.getPaidAt());
+        entity.setRefundedAt(payment.getRefundedAt());
+        return entity;
+    }
+
     private com.travelplatform.domain.valueobject.Money toMoney(BigDecimal amount, String currency) {
         return new com.travelplatform.domain.valueobject.Money(
             amount != null ? amount : BigDecimal.ZERO,
@@ -810,5 +893,14 @@ public class JpaBookingRepository implements BookingRepository {
 
     private BigDecimal amountOrZero(com.travelplatform.domain.valueobject.Money money) {
         return money != null ? money.getAmount() : BigDecimal.ZERO;
+    }
+
+    private LocalDateTime startDateTime(LocalDate startDate) {
+        return (startDate != null ? startDate : LocalDate.of(1970, 1, 1)).atStartOfDay();
+    }
+
+    private LocalDateTime endDateTime(LocalDate endDate) {
+        LocalDate effectiveEnd = endDate != null ? endDate : LocalDate.now();
+        return effectiveEnd.plusDays(1).atStartOfDay().minusNanos(1);
     }
 }

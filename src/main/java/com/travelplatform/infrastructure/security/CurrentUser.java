@@ -109,7 +109,12 @@ public class CurrentUser {
      * @param role Role to check
      * @return true if user has the role
      */
-    public boolean hasRole(UserRole role) {
-        return isAuthenticated() && securityIdentity.hasRole(role.name());
+    /**
+     * Check if the user has an admin role.
+     *
+     * @return true if user is SUPER_ADMIN
+     */
+    public boolean isAdmin() {
+        return hasRole(UserRole.SUPER_ADMIN);
     }
 }

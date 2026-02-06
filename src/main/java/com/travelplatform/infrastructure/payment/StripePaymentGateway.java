@@ -86,6 +86,55 @@ public class StripePaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public PaymentIntent createPaymentIntentWithTransfer(UUID bookingId, BigDecimal amount, String currency,
+                                                        String paymentMethod, String description,
+                                                        String destinationAccountId, BigDecimal appFeeAmount) throws PaymentException {
+        initializeStripe();
+
+        try {
+            long amountInCents = amount.multiply(new BigDecimal("100")).longValue();
+            long feeInCents = appFeeAmount.multiply(new BigDecimal("100")).longValue();
+
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency(currency.toLowerCase())
+                    .setDescription(description)
+                    .putAllMetadata(Map.of(
+                            "booking_id", bookingId.toString(),
+                            "payment_method", paymentMethod,
+                            "destination_account", destinationAccountId
+                    ))
+                    .setTransferData(PaymentIntentCreateParams.TransferData.builder()
+                            .setDestination(destinationAccountId)
+                            .build())
+                    .setApplicationFeeAmount(feeInCents)
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                    .setEnabled(true)
+                                    .build()
+                    )
+                    .build();
+
+            com.stripe.model.PaymentIntent stripeIntent = com.stripe.model.PaymentIntent.create(params);
+
+            PaymentIntent intent = new PaymentIntent();
+            intent.setId(stripeIntent.getId());
+            intent.setClientSecret(stripeIntent.getClientSecret());
+            intent.setStatus(stripeIntent.getStatus());
+            intent.setAmount(new BigDecimal(stripeIntent.getAmount()).divide(new BigDecimal("100")));
+            intent.setCurrency(stripeIntent.getCurrency().toUpperCase());
+            intent.setPaymentMethod(stripeIntent.getPaymentMethod());
+            intent.setDescription(stripeIntent.getDescription());
+            intent.setCreatedAt(Instant.ofEpochSecond(stripeIntent.getCreated()));
+
+            return intent;
+
+        } catch (StripeException e) {
+            throw new PaymentException(PAYMENT_FAILED, "Failed to create transfer payment intent: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public PaymentResult confirmPayment(String paymentIntentId, String paymentMethodId) throws PaymentException {
         initializeStripe();
 
@@ -455,6 +504,52 @@ public class StripePaymentGateway implements PaymentGateway {
                 return "Payment succeeded";
             default:
                 return "Unknown status: " + status;
+        }
+    }
+
+    @Override
+    public String createConnectAccount(String email, String accountType) throws PaymentException {
+        initializeStripe();
+
+        try {
+            AccountCreateParams params = AccountCreateParams.builder()
+                    .setType(AccountCreateParams.Type.valueOf(accountType.toUpperCase()))
+                    .setEmail(email)
+                    .setCapabilities(AccountCreateParams.Capabilities.builder()
+                            .setCardPayments(AccountCreateParams.Capabilities.CardPayments.builder()
+                                    .setRequested(true)
+                                    .build())
+                            .setTransfers(AccountCreateParams.Capabilities.Transfers.builder()
+                                    .setRequested(true)
+                                    .build())
+                            .build())
+                    .build();
+
+            Account account = Account.create(params);
+            return account.getId();
+
+        } catch (StripeException e) {
+            throw new PaymentException(INVALID_REQUEST, "Failed to create Connect account: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public String createAccountLink(String accountId, String refreshUrl, String returnUrl) throws PaymentException {
+        initializeStripe();
+
+        try {
+            AccountLinkCreateParams params = AccountLinkCreateParams.builder()
+                    .setAccount(accountId)
+                    .setRefreshUrl(refreshUrl)
+                    .setReturnUrl(returnUrl)
+                    .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
+                    .build();
+
+            AccountLink accountLink = AccountLink.create(params);
+            return accountLink.getUrl();
+
+        } catch (StripeException e) {
+            throw new PaymentException(INVALID_REQUEST, "Failed to create account link: " + e.getMessage(), e);
         }
     }
 }

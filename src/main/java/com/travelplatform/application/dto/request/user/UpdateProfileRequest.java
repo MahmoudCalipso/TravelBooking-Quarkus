@@ -33,9 +33,14 @@ public class UpdateProfileRequest {
     @Pattern(regexp = "NONE|A|B|C|D|E|INTERNATIONAL", message = "Invalid driving license category")
     private String drivingLicenseCategory;
 
-    @Pattern(regexp = "WORKER|STUDENT|RETIRED|SELF_EMPLOYED|UNEMPLOYED|FREELANCER|ENTREPRENEUR|OTHER",
-            message = "Invalid work status")
+    @Pattern(regexp = "WORKER|STUDENT|RETIRED|SELF_EMPLOYED|UNEMPLOYED|FREELANCER|ENTREPRENEUR|OTHER", message = "Invalid work status")
     private String occupation;
+
+    private String bankName;
+
+    private String bankAccountIban;
+
+    private String bankAccountBic;
 
     // Getters and Setters
 
@@ -109,5 +114,29 @@ public class UpdateProfileRequest {
 
     public void setOccupation(String occupation) {
         this.occupation = occupation;
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public String getBankAccountIban() {
+        return bankAccountIban;
+    }
+
+    public void setBankAccountIban(String bankAccountIban) {
+        this.bankAccountIban = bankAccountIban;
+    }
+
+    public String getBankAccountBic() {
+        return bankAccountBic;
+    }
+
+    public void setBankAccountBic(String bankAccountBic) {
+        this.bankAccountBic = bankAccountBic;
     }
 }

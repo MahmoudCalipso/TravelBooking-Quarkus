@@ -42,6 +42,9 @@ public class ReelService {
     @Inject
     ReelValidator reelValidator;
 
+    @Inject
+    com.travelplatform.domain.repository.MediaAssetRepository mediaAssetRepository;
+
     /**
      * Create a new reel.
      */
@@ -80,6 +83,9 @@ public class ReelService {
                 request.getCreatorType() : 
                 (user.getRole() == UserRole.SUPPLIER_SUBSCRIBER ? TravelReel.CreatorType.SUPPLIER_SUBSCRIBER : TravelReel.CreatorType.TRAVELER);
         
+        // Centralization Check: Ensure video and thumbnail are valid MediaAssets
+        validateMediaAsset(request.getVideoUrl(), com.travelplatform.domain.model.media.MediaAsset.OwnerType.TRAVEL_REEL);
+        validateMediaAsset(request.getThumbnailUrl(), com.travelplatform.domain.model.media.MediaAsset.OwnerType.TRAVEL_REEL);
         TravelReel reel = new TravelReel(
                 userId,
                 reelCreatorType,
@@ -552,5 +558,17 @@ public class ReelService {
         }
         int toIndex = Math.min(items.size(), fromIndex + safePageSize);
         return items.subList(fromIndex, toIndex);
+    }
+    private void validateMediaAsset(String publicUrl, com.travelplatform.domain.model.media.MediaAsset.OwnerType ownerType) {
+        if (publicUrl == null) return;
+        
+        var asset = mediaAssetRepository.findByPublicUrl(publicUrl);
+        if (asset.isEmpty()) {
+            if (publicUrl.contains("storage.googleapis.com")) {
+                 throw new IllegalArgumentException("Media asset must be confirmed in the system before use: " + publicUrl);
+            } else {
+                 throw new IllegalArgumentException("Only Firebase Storage URLs are allowed for media: " + publicUrl);
+            }
+        }
     }
 }
