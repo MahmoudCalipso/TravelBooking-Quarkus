@@ -37,7 +37,7 @@ import java.util.UUID;
 @Tag(name = "Travel Reels", description = "Short video content management")
 public class WebReelController {
 
-        private static final Logger log = LoggerFactory.getLogger(ReelController.class);
+        private static final Logger log = LoggerFactory.getLogger(WebReelController.class);
 
         @Inject
         private ReelService reelService;

@@ -36,7 +36,7 @@ import java.util.UUID;
 @Tag(name = "Events", description = "Event management")
 public class WebEventController {
 
-        private static final Logger log = LoggerFactory.getLogger(EventController.class);
+        private static final Logger log = LoggerFactory.getLogger(WebEventController.class);
 
         @Inject
         private EventService eventService;

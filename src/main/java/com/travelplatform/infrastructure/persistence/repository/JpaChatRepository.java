@@ -2,9 +2,12 @@ package com.travelplatform.infrastructure.persistence.repository;
 
 import com.travelplatform.domain.model.chat.ChatGroup;
 import com.travelplatform.domain.model.chat.ChatMessage;
+import com.travelplatform.domain.model.chat.Conversation;
+import com.travelplatform.infrastructure.persistence.entity.ChatGroupEntity;
+import com.travelplatform.infrastructure.persistence.entity.ChatGroupMemberEntity;
+import com.travelplatform.infrastructure.persistence.entity.ChatMessageEntity;
 import com.travelplatform.infrastructure.persistence.entity.ConversationEntity;
 import com.travelplatform.infrastructure.persistence.entity.DirectMessageEntity;
-import com.travelplatform.infrastructure.persistence.entity.ChatGroupMemberEntity;
 import com.travelplatform.domain.model.chat.ChatGroupMember;
 import com.travelplatform.domain.model.chat.DirectMessage;
 import com.travelplatform.domain.repository.ChatRepository;

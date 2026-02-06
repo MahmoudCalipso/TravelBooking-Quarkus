@@ -402,6 +402,10 @@ public class JpaUserRepository implements UserRepository {
                 entity.getPhoneNumber(),
                 dlc,
                 occupation,
+                entity.getStripeConnectAccountId(),
+                entity.getBankName(),
+                entity.getBankAccountIban(),
+                entity.getBankAccountBic(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt());
     }

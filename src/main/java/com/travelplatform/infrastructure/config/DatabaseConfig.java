@@ -35,9 +35,7 @@ public class DatabaseConfig {
      * @param entityManagerFactory The EntityManagerFactory
      * @return The SessionFactory
      */
-    @Produces
-    @Singleton
-    @Unremovable
+    // @Produces\r\n    // @Singleton\r\n    // @Unremovable
     public SessionFactory sessionFactory(EntityManagerFactory entityManagerFactory) {
         return entityManagerFactory.unwrap(SessionFactory.class);
     }
@@ -413,3 +411,4 @@ public class DatabaseConfig {
         return allStats;
     }
 }
+

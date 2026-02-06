@@ -38,6 +38,9 @@ public class AdminEventController {
     @Inject
     AuditService auditService;
 
+    @Inject
+    com.travelplatform.infrastructure.security.CurrentUser currentUser;
+
     /**
      * List all events with filters.
      */
@@ -70,10 +73,10 @@ public class AdminEventController {
     public BaseResponse<Void> approveEvent(@PathParam("id") UUID eventId) {
         logger.info("Admin approving event: eventId={}", eventId);
 
-        Event event = eventRepository.findByIdOptional(eventId)
+        Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        event.setStatus("APPROVED");
+        event.approve(currentUser.getId());
         eventRepository.update(event);
 
         auditService.logAction("EVENT_APPROVED", "Event", eventId, Map.of());
@@ -91,10 +94,10 @@ public class AdminEventController {
     public BaseResponse<Void> rejectEvent(@PathParam("id") UUID eventId, ActionRequest request) {
         logger.info("Admin rejecting event: eventId={}, reason={}", eventId, request.reason);
 
-        Event event = eventRepository.findByIdOptional(eventId)
+        Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        event.setStatus("REJECTED");
+        event.reject();
         eventRepository.update(event);
 
         auditService.logAction("EVENT_REJECTED", "Event", eventId,
@@ -113,10 +116,10 @@ public class AdminEventController {
     public BaseResponse<Void> cancelEvent(@PathParam("id") UUID eventId, ActionRequest request) {
         logger.info("Admin cancelling event: eventId={}, reason={}", eventId, request.reason);
 
-        Event event = eventRepository.findByIdOptional(eventId)
+        Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Event not found"));
 
-        event.setStatus("CANCELLED");
+        event.cancel();
         eventRepository.update(event);
 
         auditService.logAction("EVENT_CANCELLED", "Event", eventId,

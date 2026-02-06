@@ -14,6 +14,7 @@ import java.util.UUID;
  * Handles all pricing-related business logic including discounts,
  * seasonal pricing, and total price calculations.
  */
+@jakarta.enterprise.context.ApplicationScoped
 public class PricingService {
 
     /**
@@ -210,7 +211,7 @@ public class PricingService {
     /**
      * Calculates the refund amount for a cancelled booking.
      *
-     * @param totalPrice            booking to cancel
+     * @param totalPrice         booking to cancel
      * @param cancellationPolicy cancellation policy
      * @param daysBeforeCheckIn  days before check-in
      * @return refund amount

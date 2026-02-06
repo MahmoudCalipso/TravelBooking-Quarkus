@@ -4,7 +4,7 @@ import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.model.user.User;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.security.enterprise.SecurityContext;
+import io.quarkus.security.identity.SecurityIdentity;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.security.Principal;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class RoleBasedAccessControl {
 
     @Inject
-    SecurityContext securityContext;
+    SecurityIdentity securityIdentity;
 
     /**
      * Check if the current user has the specified role.
@@ -31,18 +31,10 @@ public class RoleBasedAccessControl {
      * @return true if user has the role, false otherwise
      */
     public boolean hasRole(UserRole role) {
-        Principal principal = securityContext.getCallerPrincipal();
-        if (principal == null) {
+        if (role == null || securityIdentity.isAnonymous()) {
             return false;
         }
-
-        if (principal instanceof JsonWebToken) {
-            JsonWebToken jwt = (JsonWebToken) principal;
-            Set<String> groups = jwt.getGroups();
-            return groups != null && groups.contains(role.name());
-        }
-
-        return false;
+        return securityIdentity.hasRole(role.name());
     }
 
     /**
@@ -107,7 +99,7 @@ public class RoleBasedAccessControl {
      * @return true if user is authenticated, false otherwise
      */
     public boolean isAuthenticated() {
-        return securityContext.getCallerPrincipal() != null;
+        return !securityIdentity.isAnonymous();
     }
 
     /**
@@ -116,7 +108,7 @@ public class RoleBasedAccessControl {
      * @return User ID or empty if not authenticated
      */
     public Optional<UUID> getCurrentUserId() {
-        Principal principal = securityContext.getCallerPrincipal();
+        Principal principal = securityIdentity.getPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -140,7 +132,7 @@ public class RoleBasedAccessControl {
      * @return User email or empty if not available
      */
     public Optional<String> getCurrentUserEmail() {
-        Principal principal = securityContext.getCallerPrincipal();
+        Principal principal = securityIdentity.getPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -159,7 +151,7 @@ public class RoleBasedAccessControl {
      * @return User role or empty if not available
      */
     public Optional<UserRole> getCurrentUserRole() {
-        Principal principal = securityContext.getCallerPrincipal();
+        Principal principal = securityIdentity.getPrincipal();
         if (principal == null) {
             return Optional.empty();
         }
@@ -179,7 +171,8 @@ public class RoleBasedAccessControl {
 
     /**
      * Check if the current user can access the specified user's resource.
-     * Users can access their own resources, and SUPER_ADMIN can access all resources.
+     * Users can access their own resources, and SUPER_ADMIN can access all
+     * resources.
      *
      * @param resourceOwnerId ID of the resource owner
      * @return true if user can access the resource, false otherwise
@@ -305,7 +298,8 @@ public class RoleBasedAccessControl {
 
     /**
      * Check if the current user can view analytics.
-     * SUPER_ADMIN can view all analytics, SUPPLIER_SUBSCRIBER can view their own analytics.
+     * SUPER_ADMIN can view all analytics, SUPPLIER_SUBSCRIBER can view their own
+     * analytics.
      *
      * @return true if user can view analytics, false otherwise
      */
@@ -315,7 +309,8 @@ public class RoleBasedAccessControl {
 
     /**
      * Check if the current user can delete content.
-     * SUPER_ADMIN can delete any content, other users can only delete their own content.
+     * SUPER_ADMIN can delete any content, other users can only delete their own
+     * content.
      *
      * @param contentOwnerId ID of the content owner
      * @return true if user can delete the content, false otherwise
@@ -326,7 +321,8 @@ public class RoleBasedAccessControl {
 
     /**
      * Check if the current user can edit content.
-     * SUPER_ADMIN can edit any content, other users can only edit their own content.
+     * SUPER_ADMIN can edit any content, other users can only edit their own
+     * content.
      *
      * @param contentOwnerId ID of the content owner
      * @return true if user can edit the content, false otherwise
@@ -363,36 +359,37 @@ public class RoleBasedAccessControl {
 
         // Website booking and mobile endpoints
         if (endpoint.startsWith("/api/v1/website-booking/") || endpoint.startsWith("/api/v1/mobile/")) {
-            return List.of(UserRole.SUPPLIER_SUBSCRIBER, UserRole.TRAVELER, UserRole.ASSOCIATION_MANAGER, UserRole.SUPER_ADMIN);
+            return List.of(UserRole.SUPPLIER_SUBSCRIBER, UserRole.TRAVELER, UserRole.ASSOCIATION_MANAGER,
+                    UserRole.SUPER_ADMIN);
         }
 
         // Accommodation creation
-        if (endpoint.equals("/api/v1/accommodations") && 
-            (endpoint.contains("POST") || endpoint.contains("PUT") || endpoint.contains("DELETE"))) {
+        if (endpoint.equals("/api/v1/accommodations") &&
+                (endpoint.contains("POST") || endpoint.contains("PUT") || endpoint.contains("DELETE"))) {
             return List.of(UserRole.SUPPLIER_SUBSCRIBER, UserRole.SUPER_ADMIN);
         }
 
         // Event creation
-        if (endpoint.equals("/api/v1/events") && 
-            (endpoint.contains("POST") || endpoint.contains("PUT") || endpoint.contains("DELETE"))) {
+        if (endpoint.equals("/api/v1/events") &&
+                (endpoint.contains("POST") || endpoint.contains("PUT") || endpoint.contains("DELETE"))) {
             return List.of(UserRole.ASSOCIATION_MANAGER, UserRole.SUPER_ADMIN);
         }
 
         // All authenticated users can access these endpoints
         if (endpoint.startsWith("/api/v1/bookings") ||
-            endpoint.startsWith("/api/v1/reviews") ||
-            endpoint.startsWith("/api/v1/reels") ||
-            endpoint.startsWith("/api/v1/chat") ||
-            endpoint.startsWith("/api/v1/notifications") ||
-            endpoint.startsWith("/api/v1/users/profile")) {
+                endpoint.startsWith("/api/v1/reviews") ||
+                endpoint.startsWith("/api/v1/reels") ||
+                endpoint.startsWith("/api/v1/chat") ||
+                endpoint.startsWith("/api/v1/notifications") ||
+                endpoint.startsWith("/api/v1/users/profile")) {
             return List.of(UserRole.values());
         }
 
         // Public endpoints
         if (endpoint.startsWith("/api/v1/auth/") ||
-            endpoint.startsWith("/api/v1/accommodations") ||
-            endpoint.startsWith("/api/v1/reels/feed") ||
-            endpoint.startsWith("/api/v1/search")) {
+                endpoint.startsWith("/api/v1/accommodations") ||
+                endpoint.startsWith("/api/v1/reels/feed") ||
+                endpoint.startsWith("/api/v1/search")) {
             return List.of(UserRole.values());
         }
 

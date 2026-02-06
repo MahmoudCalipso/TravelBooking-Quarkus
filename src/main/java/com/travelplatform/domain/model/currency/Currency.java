@@ -12,6 +12,10 @@ public class Currency {
     private String countryName;
     private String currencyCode;
     private String currencySymbol;
+    private java.math.BigDecimal exchangeRate;
+    private Integer decimalPlaces;
+    private boolean active;
+    private boolean isBase;
     private final LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -30,6 +34,19 @@ public class Currency {
         this.currencySymbol = currencySymbol.trim();
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
+    }
+
+    /**
+     * No-arg constructor for frameworks.
+     */
+    public Currency() {
+        this.id = UUID.randomUUID();
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt;
+        this.active = true;
+        this.isBase = false;
+        this.exchangeRate = java.math.BigDecimal.ONE;
+        this.decimalPlaces = 2;
     }
 
     /**

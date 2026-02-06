@@ -15,6 +15,7 @@ import java.util.UUID;
  * Domain service for business validation.
  * Handles all business validation rules across the platform.
  */
+@jakarta.enterprise.context.ApplicationScoped
 public class ValidationService {
 
     // ==================== User Validation ====================

@@ -32,7 +32,7 @@ import java.util.UUID;
 @Tag(name = "Notifications", description = "Notification management")
 public class WebNotificationController {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificationController.class);
+    private static final Logger log = LoggerFactory.getLogger(WebNotificationController.class);
 
     @Inject
     private NotificationService notificationService;

@@ -14,6 +14,8 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeIn;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.inject.Alternative;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.annotations.servers.Server;
@@ -49,6 +51,8 @@ import java.util.List;
 })
 @SecurityScheme(securitySchemeName = "jwtAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT", description = "JWT authentication token")
 @Unremovable
+@Alternative
+@Priority(1)
 public class OpenApiConfig implements OASFilter {
 
     private static final Logger log = LoggerFactory.getLogger(OpenApiConfig.class);

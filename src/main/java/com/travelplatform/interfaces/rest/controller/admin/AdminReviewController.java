@@ -61,10 +61,10 @@ public class AdminReviewController {
     public BaseResponse<Void> deleteReview(@PathParam("id") UUID reviewId, DeleteRequest request) {
         logger.info("Admin deleting review: reviewId={}, reason={}", reviewId, request.reason);
 
-        Review review = reviewRepository.findByIdOptional(reviewId)
+        Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new NotFoundException("Review not found"));
 
-        reviewRepository.delete(review);
+        reviewRepository.deleteById(reviewId);
 
         auditService.logAction("REVIEW_DELETED", "Review", reviewId,
                 Map.of("reason", request.reason != null ? request.reason : ""));

@@ -12,6 +12,7 @@ import java.util.UUID;
  * Domain service for availability checking.
  * Handles all availability-related business logic for accommodations.
  */
+@jakarta.enterprise.context.ApplicationScoped
 public class AvailabilityService {
 
     /**

@@ -16,7 +16,7 @@ public class User {
     private final UUID id;
     private final String email;
     private String passwordHash;
-    private final UserRole role;
+    private UserRole role;
     private UserStatus status;
     private boolean emailVerified;
     private final LocalDateTime createdAt;
@@ -165,6 +165,14 @@ public class User {
 
     public void setEmailVerified(boolean emailVerified) {
         this.emailVerified = emailVerified;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setRole(UserRole role) {
+        if (role == null) {
+            throw new IllegalArgumentException("Role cannot be null");
+        }
+        this.role = role;
         this.updatedAt = LocalDateTime.now();
     }
 

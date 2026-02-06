@@ -41,7 +41,7 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class WebOAuthController {
 
-    private static final Logger log = LoggerFactory.getLogger(OAuthController.class);
+    private static final Logger log = LoggerFactory.getLogger(WebOAuthController.class);
 
     @Inject
     OAuthService oauthService;
@@ -53,7 +53,7 @@ public class WebOAuthController {
      * that the user should be redirected to.
      * 
      * @param provider The OAuth provider (google, microsoft, apple)
-     * @param role The user role (TRAVELER or SUPPLIER_SUBSCRIBER)
+     * @param role     The user role (TRAVELER or SUPPLIER_SUBSCRIBER)
      * @return Response containing authorization URL
      */
     @GET
@@ -62,7 +62,7 @@ public class WebOAuthController {
             @PathParam("provider") String provider,
             @QueryParam("role") String role,
             @QueryParam("redirect_uri") String redirectUri) {
-        
+
         log.info("OAuth authorization request - Provider: {}, Role: {}", provider, role);
 
         try {
@@ -128,10 +128,12 @@ public class WebOAuthController {
     /**
      * Handle OAuth callback and authenticate user.
      * 
-     * This endpoint handles the callback from OAuth provider after user authorization.
+     * This endpoint handles the callback from OAuth provider after user
+     * authorization.
      * It exchanges the authorization code for tokens and authenticates the user.
      * 
-     * @param request The OAuth login request containing authorization code and state
+     * @param request The OAuth login request containing authorization code and
+     *                state
      * @return Response containing JWT token and user information
      */
     @POST
@@ -168,8 +170,7 @@ public class WebOAuthController {
             AuthResponse authResponse = oauthService.handleOAuthCallback(
                     oauthProvider,
                     request.getAuthorizationCode(),
-                    userRole
-            );
+                    userRole);
 
             // Build response
             Map<String, Object> data = new HashMap<>();
@@ -182,9 +183,8 @@ public class WebOAuthController {
             SuccessResponse response = new SuccessResponse();
             response.setSuccess(true);
             response.setData(data);
-            response.setMessage(authResponse.isNewUser() ? 
-                    "Account created successfully via OAuth" : 
-                    "Logged in successfully via OAuth");
+            response.setMessage(authResponse.isNewUser() ? "Account created successfully via OAuth"
+                    : "Logged in successfully via OAuth");
 
             return Response.ok(response).build();
 
@@ -214,7 +214,7 @@ public class WebOAuthController {
 
         try {
             Map<String, OAuthProviderInfo> providers = new HashMap<>();
-            
+
             for (OAuthProvider provider : OAuthProvider.values()) {
                 OAuthProviderInfo info = oauthService.getProviderInfo(provider);
                 providers.put(provider.getProviderId(), info);

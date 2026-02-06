@@ -19,6 +19,8 @@ import com.travelplatform.domain.service.AvailabilityService;
 import com.travelplatform.domain.service.PricingService;
 import com.travelplatform.domain.valueobject.DateRange;
 import com.travelplatform.domain.valueobject.Money;
+import com.travelplatform.infrastructure.payment.PaymentException;
+import com.travelplatform.infrastructure.payment.PaymentGateway;
 import com.travelplatform.interfaces.websocket.AvailabilityWebSocketEndpoint;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

@@ -38,7 +38,7 @@ import java.util.UUID;
 @Tag(name = "Users", description = "User profile and account management")
 public class WebUserController {
 
-    private static final Logger log = LoggerFactory.getLogger(UserController.class);
+    private static final Logger log = LoggerFactory.getLogger(WebUserController.class);
 
     @Inject
     private UserService userService;

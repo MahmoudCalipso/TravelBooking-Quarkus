@@ -109,6 +109,13 @@ public class CurrentUser {
      * @param role Role to check
      * @return true if user has the role
      */
+    public boolean hasRole(UserRole role) {
+        if (role == null) {
+            return false;
+        }
+        return role.equals(getRole());
+    }
+
     /**
      * Check if the user has an admin role.
      *

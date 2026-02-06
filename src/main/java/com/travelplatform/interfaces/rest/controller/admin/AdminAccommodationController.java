@@ -40,7 +40,10 @@ public class AdminAccommodationController {
         AccommodationRepository accommodationRepository;
 
         @Inject
-        AuditService auditService;
+        com.travelplatform.application.service.AuditService auditService;
+
+        @Inject
+        com.travelplatform.infrastructure.security.CurrentUser currentUser;
 
         /**
          * List all accommodations with filters.
@@ -88,11 +91,11 @@ public class AdminAccommodationController {
                 Accommodation accommodation = accommodationRepository.findById(accommodationId)
                                 .orElseThrow(() -> new NotFoundException("Accommodation not found"));
 
-                accommodation.approve(null);
+                accommodation.approve(currentUser.getId());
                 accommodationRepository.update(accommodation);
 
                 auditService.logAction("ACCOMMODATION_APPROVED", "Accommodation", accommodationId,
-                                Map.of("name", accommodation.getName(), "supplierId",
+                                Map.of("name", accommodation.getTitle(), "supplierId",
                                                 accommodation.getSupplierId().toString()));
 
                 return BaseResponse.success(accommodation, "Accommodation approved successfully");
@@ -195,7 +198,8 @@ public class AdminAccommodationController {
                 Accommodation accommodation = accommodationRepository.findById(accommodationId)
                                 .orElseThrow(() -> new NotFoundException("Accommodation not found"));
 
-                accommodation.updateVisibilityRank(request.rank);
+                // TODO: Implement visibility rank if supported by domain
+                // accommodation.updateVisibilityRank(request.rank);
                 accommodationRepository.update(accommodation);
 
                 auditService.logAction("ACCOMMODATION_VISIBILITY_UPDATED", "Accommodation", accommodationId,

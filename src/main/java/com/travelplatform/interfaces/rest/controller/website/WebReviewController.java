@@ -35,7 +35,7 @@ import java.util.UUID;
 @Tag(name = "Reviews", description = "Review management")
 public class WebReviewController {
 
-        private static final Logger log = LoggerFactory.getLogger(ReviewController.class);
+        private static final Logger log = LoggerFactory.getLogger(WebReviewController.class);
 
         @Inject
         private ReviewService reviewService;
