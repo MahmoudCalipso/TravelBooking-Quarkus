@@ -306,6 +306,29 @@ public class AdminAnalyticsService {
     }
 
     /**
+     * Get platform fee analytics (service fees collected from suppliers/associations).
+     */
+    @Transactional
+    public PlatformFeeAnalytics getPlatformFeeAnalytics(LocalDate startDate, LocalDate endDate) {
+        LocalDate start = startDate != null ? startDate : LocalDate.now().minusDays(30);
+        LocalDate end = endDate != null ? endDate : LocalDate.now();
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.plusDays(1).atStartOfDay().minusSeconds(1);
+
+        BigDecimal supplierFees = bookingRepository.calculateServiceFeesBySupplierRoles(
+                List.of(UserRole.SUPPLIER_SUBSCRIBER), startDateTime, endDateTime,
+                List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED));
+
+        BigDecimal associationFees = bookingRepository.calculateServiceFeesBySupplierRoles(
+                List.of(UserRole.ASSOCIATION_MANAGER), startDateTime, endDateTime,
+                List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED));
+
+        BigDecimal totalFees = supplierFees.add(associationFees);
+
+        return new PlatformFeeAnalytics(start, end, supplierFees, associationFees, totalFees);
+    }
+
+    /**
      * Booking analytics DTO.
      */
     public static class BookingAnalytics {
@@ -401,6 +424,46 @@ public class AdminAnalyticsService {
 
         public long getCancelledBookings() {
             return cancelledBookings;
+        }
+    }
+
+    /**
+     * Platform fee analytics DTO.
+     */
+    public static class PlatformFeeAnalytics {
+        private final LocalDate startDate;
+        private final LocalDate endDate;
+        private final BigDecimal supplierFees;
+        private final BigDecimal associationFees;
+        private final BigDecimal totalFees;
+
+        public PlatformFeeAnalytics(LocalDate startDate, LocalDate endDate,
+                BigDecimal supplierFees, BigDecimal associationFees, BigDecimal totalFees) {
+            this.startDate = startDate;
+            this.endDate = endDate;
+            this.supplierFees = supplierFees;
+            this.associationFees = associationFees;
+            this.totalFees = totalFees;
+        }
+
+        public LocalDate getStartDate() {
+            return startDate;
+        }
+
+        public LocalDate getEndDate() {
+            return endDate;
+        }
+
+        public BigDecimal getSupplierFees() {
+            return supplierFees;
+        }
+
+        public BigDecimal getAssociationFees() {
+            return associationFees;
+        }
+
+        public BigDecimal getTotalFees() {
+            return totalFees;
         }
     }
 

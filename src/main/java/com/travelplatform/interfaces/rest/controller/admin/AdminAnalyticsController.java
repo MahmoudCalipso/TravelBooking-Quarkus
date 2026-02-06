@@ -219,6 +219,39 @@ public class AdminAnalyticsController {
     }
 
     /**
+     * Get platform fee analytics (service fees collected from suppliers/associations).
+     */
+    @GET
+    @Path("/revenue/platform-fees")
+    @Authenticated
+    @Operation(summary = "Get platform fee analytics", description = "Summarize platform fees collected from suppliers and association managers")
+    @APIResponses(value = {
+        @APIResponse(responseCode = "200", description = "Platform fee analytics retrieved successfully"),
+        @APIResponse(responseCode = "401", description = "Not authenticated"),
+        @APIResponse(responseCode = "403", description = "Insufficient permissions")
+    })
+    public Response getPlatformFees(
+            @QueryParam("startDate") LocalDate startDate,
+            @QueryParam("endDate") LocalDate endDate) {
+        try {
+            log.info("Get platform fee analytics request");
+
+            AdminAnalyticsService.PlatformFeeAnalytics analytics =
+                    adminAnalyticsService.getPlatformFeeAnalytics(startDate, endDate);
+
+            return Response.ok()
+                    .entity(new SuccessResponse<>(analytics, "Platform fees retrieved successfully"))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Unexpected error getting platform fee analytics", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
+                    .build();
+        }
+    }
+
+    /**
      * Get user statistics.
      *
      * @param startDate The start date

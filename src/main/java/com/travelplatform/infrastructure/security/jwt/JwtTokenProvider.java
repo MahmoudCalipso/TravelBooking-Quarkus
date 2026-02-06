@@ -4,15 +4,17 @@ import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.enums.UserStatus;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.jwt.build.JwtClaimsBuilder;
+import io.smallrye.jwt.auth.principal.JWTParser;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,6 +41,14 @@ public class JwtTokenProvider {
     @ConfigProperty(name = "jwt.issuer")
     String jwtIssuer;
 
+    @Inject
+    JWTParser jwtParser;
+
+    private static final String TYPE_CLAIM = "type";
+    private static final String EMAIL_CLAIM = "email";
+    private static final String ROLE_CLAIM = "role";
+    private static final String STATUS_CLAIM = "status";
+
     /**
      * Generate JWT access token for a user.
      *
@@ -60,7 +70,7 @@ public class JwtTokenProvider {
                 .claim("email", email)
                 .claim("role", role.name())
                 .claim("status", status.name())
-                .claim("type", "access");
+                .claim(TYPE_CLAIM, "access");
 
         // Add role-based groups for authorization
         Set<String> groups = new HashSet<>();
@@ -91,7 +101,7 @@ public class JwtTokenProvider {
                 .issuer(jwtIssuer)
                 .issuedAt(now)
                 .expiresAt(expiration)
-                .claim("type", "refresh")
+                .claim(TYPE_CLAIM, "refresh")
                 .jws()
                 .keyId(jwtSecret)
                 .sign(jwtSecret);
@@ -141,10 +151,10 @@ public class JwtTokenProvider {
      * @return Expiration date
      */
     public Date getExpirationDateFromToken(String token) {
-        // This would require parsing the JWT token
-        // For simplicity, we'll return null here
-        // In production, use a JWT parser library
-        return null;
+        return parse(token)
+                .map(JsonWebToken::getExpirationTime)
+                .map(exp -> Date.from(Instant.ofEpochSecond(exp)))
+                .orElse(null);
     }
 
     /**
@@ -154,10 +164,10 @@ public class JwtTokenProvider {
      * @return User ID
      */
     public UUID getUserIdFromToken(String token) {
-        // This would require parsing the JWT token
-        // For simplicity, we'll return null here
-        // In production, use a JWT parser library
-        return null;
+        return parse(token)
+                .map(JsonWebToken::getSubject)
+                .map(UUID::fromString)
+                .orElse(null);
     }
 
     /**
@@ -167,10 +177,11 @@ public class JwtTokenProvider {
      * @return User role
      */
     public UserRole getRoleFromToken(String token) {
-        // This would require parsing the JWT token
-        // For simplicity, we'll return null here
-        // In production, use a JWT parser library
-        return null;
+        return parse(token)
+                .map(jwt -> jwt.getClaim(ROLE_CLAIM))
+                .map(Object::toString)
+                .map(UserRole::valueOf)
+                .orElse(null);
     }
 
     /**
@@ -180,10 +191,10 @@ public class JwtTokenProvider {
      * @return User email
      */
     public String getEmailFromToken(String token) {
-        // This would require parsing the JWT token
-        // For simplicity, we'll return null here
-        // In production, use a JWT parser library
-        return null;
+        return parse(token)
+                .map(jwt -> jwt.getClaim(EMAIL_CLAIM))
+                .map(Object::toString)
+                .orElse(null);
     }
 
     /**
@@ -205,9 +216,7 @@ public class JwtTokenProvider {
      */
     public boolean validateToken(String token) {
         try {
-            // In production, use a JWT parser to validate signature and claims
-            // For simplicity, we'll do basic validation here
-            return token != null && !token.isEmpty() && !isTokenExpired(token);
+            return parse(token).isPresent() && !isTokenExpired(token);
         } catch (Exception e) {
             return false;
         }
@@ -220,10 +229,10 @@ public class JwtTokenProvider {
      * @return Token type
      */
     public String getTokenType(String token) {
-        // This would require parsing the JWT token
-        // For simplicity, we'll return null here
-        // In production, use a JWT parser library
-        return null;
+        return parse(token)
+                .map(jwt -> jwt.getClaim(TYPE_CLAIM))
+                .map(Object::toString)
+                .orElse(null);
     }
 
     /**
@@ -244,5 +253,17 @@ public class JwtTokenProvider {
      */
     public boolean isAccessToken(String token) {
         return "access".equals(getTokenType(token));
+    }
+
+    private Optional<JsonWebToken> parse(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        String normalized = token.startsWith("Bearer ") ? token.substring("Bearer ".length()) : token;
+        try {
+            return Optional.of(jwtParser.parse(normalized));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

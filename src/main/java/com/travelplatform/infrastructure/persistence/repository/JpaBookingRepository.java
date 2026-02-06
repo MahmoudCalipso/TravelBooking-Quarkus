@@ -2,6 +2,7 @@ package com.travelplatform.infrastructure.persistence.repository;
 
 import com.travelplatform.domain.enums.BookingStatus;
 import com.travelplatform.domain.enums.PaymentStatus;
+import com.travelplatform.domain.enums.UserRole;
 import com.travelplatform.domain.model.booking.Booking;
 import com.travelplatform.domain.repository.BookingRepository;
 import com.travelplatform.infrastructure.persistence.entity.BookingEntity;
@@ -664,6 +665,31 @@ public class JpaBookingRepository implements BookingRepository {
             "SELECT COUNT(b) FROM BookingEntity b JOIN AccommodationEntity a ON b.accommodationId = a.id " +
             "WHERE a.supplierId = :supplierId", Long.class);
         query.setParameter("supplierId", supplierId);
+        return query.getSingleResult();
+    }
+
+    @Override
+    public BigDecimal calculateServiceFeesBySupplierRoles(List<UserRole> roles, LocalDateTime start,
+            LocalDateTime end, List<BookingStatus> statuses) {
+        if (roles == null || roles.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        List<BookingStatus> effectiveStatuses = (statuses == null || statuses.isEmpty())
+                ? List.of(BookingStatus.CONFIRMED, BookingStatus.COMPLETED)
+                : statuses;
+
+        TypedQuery<BigDecimal> query = entityManager.createQuery(
+            "SELECT COALESCE(SUM(b.serviceFee), 0) FROM BookingEntity b " +
+                "JOIN AccommodationEntity a ON b.accommodationId = a.id " +
+                "JOIN UserEntity u ON a.supplierId = u.id " +
+                "WHERE u.role IN :roles " +
+                "AND b.status IN :statuses " +
+                "AND b.createdAt BETWEEN :start AND :end",
+            BigDecimal.class);
+        query.setParameter("roles", roles);
+        query.setParameter("statuses", effectiveStatuses);
+        query.setParameter("start", start);
+        query.setParameter("end", end);
         return query.getSingleResult();
     }
 

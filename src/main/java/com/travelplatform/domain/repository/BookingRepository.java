@@ -453,6 +453,21 @@ public interface BookingRepository {
     List<Booking> findBySupplierIdAndStatus(UUID supplierId, BookingStatus status);
 
     /**
+     * Calculate platform service fees collected from bookings for specific supplier roles.
+     *
+     * @param roles supplier roles to include (e.g., SUPPLIER_SUBSCRIBER, ASSOCIATION_MANAGER)
+     * @param start start date-time (inclusive)
+     * @param end end date-time (inclusive)
+     * @param statuses booking statuses to include when counting fees
+     * @return total service fee amount (currency as stored)
+     */
+    java.math.BigDecimal calculateServiceFeesBySupplierRoles(
+            java.util.List<com.travelplatform.domain.enums.UserRole> roles,
+            java.time.LocalDateTime start,
+            java.time.LocalDateTime end,
+            java.util.List<BookingStatus> statuses);
+
+    /**
      * Counts bookings by supplier.
      *
      * @param supplierId supplier user ID

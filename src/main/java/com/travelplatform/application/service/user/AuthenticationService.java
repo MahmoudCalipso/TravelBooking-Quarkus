@@ -12,11 +12,12 @@ import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.model.user.UserPreferences;
 import com.travelplatform.domain.model.user.UserProfile;
 import com.travelplatform.domain.repository.UserRepository;
+import com.travelplatform.infrastructure.security.jwt.JwtTokenProvider;
+import com.travelplatform.infrastructure.security.password.PasswordEncoder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -34,6 +35,12 @@ public class AuthenticationService {
 
     @Inject
     UserValidator userValidator;
+
+    @Inject
+    JwtTokenProvider jwtTokenProvider;
+
+    @Inject
+    PasswordEncoder passwordEncoder;
 
     private static final long TOKEN_EXPIRATION_HOURS = 24;
 
@@ -102,7 +109,7 @@ public class AuthenticationService {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
         // Verify password
-        if (!user.getPasswordHash().equals(hashPassword(request.getPassword()))) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
@@ -204,7 +211,7 @@ public class AuthenticationService {
     public void changePassword(String userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        if (!user.getPasswordHash().equals(hashPassword(currentPassword))) {
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid current password");
         }
         user.setPasswordHash(hashPassword(newPassword));
@@ -216,25 +223,33 @@ public class AuthenticationService {
      */
     @Transactional
     public UserResponse validateToken(String token) {
-        // TODO: Implement JWT token validation
-        // For now, this is a placeholder
-        throw new UnsupportedOperationException("Token validation not implemented yet");
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new IllegalArgumentException("Invalid or expired token");
+        }
+        UUID userId = jwtTokenProvider.getUserIdFromToken(token);
+        if (userId == null) {
+            throw new IllegalArgumentException("Invalid token: missing user ID");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return userMapper.toUserResponse(user);
     }
 
     /**
      * Generate JWT token for user.
      */
     private String generateJwtToken(User user) {
-        // TODO: Implement JWT token generation
-        // For now, return a placeholder token
-        return "jwt_token_" + user.getId() + "_" + System.currentTimeMillis();
+        return jwtTokenProvider.generateAccessToken(
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                user.getStatus());
     }
 
     /**
-     * Hash password (placeholder - should use BCrypt in production).
+     * Hash password using configured PasswordEncoder (BCrypt).
      */
     private String hashPassword(String password) {
-        // TODO: Implement BCrypt hashing
-        return password;
+        return passwordEncoder.encode(password);
     }
 }

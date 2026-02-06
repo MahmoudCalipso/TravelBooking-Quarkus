@@ -14,6 +14,7 @@ import com.travelplatform.domain.model.user.User;
 import com.travelplatform.domain.model.user.UserPreferences;
 import com.travelplatform.domain.model.user.UserProfile;
 import com.travelplatform.domain.repository.UserRepository;
+import com.travelplatform.infrastructure.security.password.PasswordEncoder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -36,6 +37,9 @@ public class UserService {
 
     @Inject
     UserValidator userValidator;
+
+    @Inject
+    PasswordEncoder passwordEncoder;
 
     /**
      * Get user by ID.
@@ -199,7 +203,7 @@ public class UserService {
         userValidator.validatePasswordChange(request);
 
         // Verify current password
-        if (!user.getPasswordHash().equals(hashPassword(request.getCurrentPassword()))) {
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
@@ -367,10 +371,9 @@ public class UserService {
     }
 
     /**
-     * Hash password (placeholder - should use BCrypt in production).
+     * Hash password using configured PasswordEncoder (BCrypt).
      */
     private String hashPassword(String password) {
-        // TODO: Implement BCrypt hashing
-        return password;
+        return passwordEncoder.encode(password);
     }
 }
